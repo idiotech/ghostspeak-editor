@@ -29,7 +29,12 @@ import {
   useRecordContext,
   DeleteWithConfirmButton,
   NumberInput,
+  Button,
+  Confirm,
+  useDataProvider,
+  useRefresh,
 } from "react-admin";
+import FlagIcon from "@mui/icons-material/Flag";
 
 import {
   conditionTypes,
@@ -88,6 +93,7 @@ export const ActionList = () => {
       <List title={<Title />} perPage={100} filters={actionFilters}>
         <Datagrid rowClick={false}>
           <FunctionField label="編號" render={getRowIndex} />
+          <FirstActionButton label="開頭" />
           <TextField label="名稱" source="name" />
           <FunctionField label="條件" render={getConditionIcon} />
           <FunctionField label="內容" render={getContentIcon} />
@@ -117,6 +123,66 @@ const DeleteButton = () => {
       confirmTitle={`確認刪除《${record.name}》`}
       translateOptions={{ name: record.name }}
     />
+  );
+};
+
+// flags the initial action; on any other row, makes that action the initial one
+// and clears the flag everywhere else, so the scenario keeps a single start
+const FirstActionButton = () => {
+  const record = useRecordContext();
+  const dataProvider = useDataProvider();
+  const notify = useNotify();
+  const refresh = useRefresh();
+  const [open, setOpen] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  if (!record) return null;
+  if (record.firstAction) return <FlagIcon color="primary" titleAccess="開頭" />;
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    try {
+      // the list may be filtered, so look up every flagged action
+      const { data: current } = await dataProvider.getList("actions", {
+        pagination: { page: 1, perPage: 1000 },
+        sort: { field: "id", order: "ASC" },
+        filter: { firstAction: true },
+      });
+      await Promise.all(
+        current.map((a) =>
+          dataProvider.update("actions", {
+            id: a.id,
+            data: { firstAction: false },
+            previousData: a,
+          })
+        )
+      );
+      await dataProvider.update("actions", {
+        id: record.id,
+        data: { firstAction: true },
+        previousData: record,
+      });
+      notify(`已將《${record.name}》設為開頭`, { type: "info" });
+      refresh();
+    } catch (e) {
+      notify(`設定開頭失敗：${e.message}`, { type: "error" });
+    } finally {
+      setSaving(false);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <>
+      <Button label="設為開頭" onClick={() => setOpen(true)} disabled={saving} />
+      <Confirm
+        isOpen={open}
+        loading={saving}
+        title={`將《${record.name}》設為開頭`}
+        content="原本的開頭動作將不再是開頭，需要時請替它設定前一步。確定嗎？"
+        onConfirm={handleConfirm}
+        onClose={() => setOpen(false)}
+      />
+    </>
   );
 };
 
