@@ -83,7 +83,7 @@ export const PeopleCreate = () => (
 );
 
 export const PeopleEdit = () => (
-  <Edit title={<Title />}>
+  <Edit title={<Title />} mutationMode="pessimistic">
     <InputForm />
   </Edit>
 );

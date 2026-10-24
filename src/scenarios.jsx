@@ -1026,7 +1026,7 @@ export const ScenarioCreate = () => (
 );
 
 export const ScenarioEdit = () => (
-  <Edit title={<Title />}>
+  <Edit title={<Title />} mutationMode="pessimistic">
     <InputForm create={false} />
   </Edit>
 );

@@ -73,7 +73,7 @@ export const VariableCreate = () => (
 );
 
 export const VariableEdit = () => (
-  <Edit title={<Title />}>
+  <Edit title={<Title />} mutationMode="pessimistic">
     <SimpleForm>
       <TextInput readOnly source="id" />
       <DateTimeInput label="建立時間" readOnly source="createdate" />

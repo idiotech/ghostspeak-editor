@@ -73,7 +73,7 @@ export const MapStyleCreate = () => (
 );
 
 export const MapStyleEdit = () => (
-  <Edit title={<Title />}>
+  <Edit title={<Title />} mutationMode="pessimistic">
     <SimpleForm>
       <TextInput readOnly source="id" />
       <TextInput label="名稱" source="name" />

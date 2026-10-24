@@ -130,11 +130,10 @@ const ActionSaveButton = ({ label }) => {
       type="button"
       mutationOptions={{
         onSuccess: (data) => {
-          // Edit is undoable: the update is sent when this notification closes
+          // Edit is pessimistic, so the update is already saved
           notify("ra.notification.updated", {
             type: "info",
             messageArgs: { smart_count: 1 },
-            undoable: true,
           });
           redirect("create", "actions", undefined, undefined, {
             record: { prevs: [{ prev: data.id, conditionType: "ALWAYS" }] },
@@ -406,9 +405,12 @@ export const ActionCreate = () => {
   );
 };
 
+// Every Edit page saves pessimistically: in the default undoable mode the
+// write waits until the notification closes, and a publish in the meantime
+// reads the old record from Firestore.
 export const ActionEdit = () => {
   return (
-    <Edit title={<Title />}>
+    <Edit title={<Title />} mutationMode="pessimistic">
       <InputForm showid="true" />
     </Edit>
   );

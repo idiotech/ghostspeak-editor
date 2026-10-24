@@ -172,7 +172,7 @@ export const BroadcastCreate = () => {
 
 export const BroadcastEdit = () => {
   return (
-    <Edit title={<Title />}>
+    <Edit title={<Title />} mutationMode="pessimistic">
       <InputForm showid="true" />
     </Edit>
   );
