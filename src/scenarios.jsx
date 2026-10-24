@@ -42,6 +42,10 @@ import { getRecordField, withoutDisplayFields } from "./utils";
 
 import { useAllData, getActions, apiUrl } from "./serverCommon";
 import { getPrevId } from "./actionCommon";
+import {
+  describeBrokenReferences,
+  BrokenReferencesMessage,
+} from "./brokenReferences";
 import { isSuperUser, getAuthUid } from "./App";
 import ImageReferenceInput from "./ImageReferenceInput";
 import {
@@ -215,6 +219,23 @@ function PublishButton(props) {
       setLoading(false);
       setOpen(false);
       notify("沒有初始動作，無法發佈！", { type: "error" });
+      return;
+    }
+
+    // report every broken reference in the published actions at once
+    function flatten(tree) {
+      return [tree.node, ...tree.children.flatMap(flatten)];
+    }
+    const broken = describeBrokenReferences(flatten(actionTree), data);
+    if (broken.length > 0) {
+      setLoading(false);
+      notify(
+        <BrokenReferencesMessage
+          title="無法發佈，以下動作參照的項目已不存在："
+          problems={broken}
+        />,
+        { type: "error", autoHideDuration: null }
+      );
       return;
     }
 

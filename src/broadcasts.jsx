@@ -55,6 +55,12 @@ import {
 } from "./actionCommon";
 
 import { useAllData, getActions } from "./serverCommon";
+import {
+  AllDataContext,
+  BrokenReferencesField,
+  BrokenReferencesMessage,
+  findBrokenReferences,
+} from "./brokenReferences";
 
 const Title = () => {
   const record = useRecordContext();
@@ -71,11 +77,18 @@ const broadcastFilters = [
 ];
 
 export const BroadcastList = () => {
-  if (getCurrentScenario()) {
-    return (
+  if (getCurrentScenario()) return <ScenarioBroadcastList />;
+  else return <DummyList />;
+};
+
+const ScenarioBroadcastList = () => {
+  const data = useAllData();
+  return (
+    <AllDataContext.Provider value={data}>
       <List title={<Title />} perPage={100} filters={broadcastFilters}>
         <Datagrid rowClick={false}>
           <TextField label="編號" source="rowIndex" />
+          <BrokenReferencesField label="檢查" />
           <TextField label="名稱" source="name" />
           <FunctionField label="條件" render={getConditionIcon} />
           <FunctionField label="內容" render={getContentIcon} />
@@ -84,8 +97,8 @@ export const BroadcastList = () => {
           <DeleteButton label="" redirect={false} />
         </Datagrid>
       </List>
-    );
-  } else return <DummyList />;
+    </AllDataContext.Provider>
+  );
 };
 
 const InputForm = (props) => {
@@ -230,6 +243,17 @@ function SendButton(props) {
   const notify = useNotify();
   async function handleConfirm() {
     setOpen(false);
+    const problems = findBrokenReferences(record, data);
+    if (problems.length > 0) {
+      notify(
+        <BrokenReferencesMessage
+          title={`無法傳送「${getRecordField(record, "name")}」，參照的項目已不存在：`}
+          problems={problems}
+        />,
+        { type: "error", autoHideDuration: null }
+      );
+      return;
+    }
     setLoading(true);
     try {
       const condition = getCondition(record, data);

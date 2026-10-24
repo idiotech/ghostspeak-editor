@@ -27,7 +27,6 @@ import {
   useNotify,
   useRedirect,
   useRecordContext,
-  DeleteWithConfirmButton,
   NumberInput,
   Button,
   Confirm,
@@ -66,6 +65,9 @@ import {
 } from "./actionCommon";
 
 import { getRecordField } from "./utils";
+import { getDeleteButton } from "./deleteResource";
+import { useAllData } from "./serverCommon";
+import { AllDataContext, BrokenReferencesField } from "./brokenReferences";
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 
@@ -88,11 +90,18 @@ const getRowIndex = (record) => {
 };
 
 export const ActionList = () => {
-  if (getCurrentScenario())
-    return (
+  if (getCurrentScenario()) return <ScenarioActionList />;
+  else return <DummyList />;
+};
+
+const ScenarioActionList = () => {
+  const data = useAllData();
+  return (
+    <AllDataContext.Provider value={data}>
       <List title={<Title />} perPage={100} filters={actionFilters}>
         <Datagrid rowClick={false}>
           <FunctionField label="編號" render={getRowIndex} />
+          <BrokenReferencesField label="檢查" />
           <FirstActionButton label="開頭" />
           <TextField label="名稱" source="name" />
           <FunctionField label="條件" render={getConditionIcon} />
@@ -106,25 +115,18 @@ export const ActionList = () => {
             </Datagrid>
           </ArrayField>
           <NextButton source="id" label="下一步" />
-          <DeleteButton />
+          <ActionDelete />
         </Datagrid>
       </List>
-    );
-  else return <DummyList />;
-};
-
-const DeleteButton = () => {
-  const record = useRecordContext();
-  if (!record) return null;
-  return (
-    <DeleteWithConfirmButton
-      label="刪除"
-      confirmContent="將刪除此動作，確定嗎？"
-      confirmTitle={`確認刪除《${record.name}》`}
-      translateOptions={{ name: record.name }}
-    />
+    </AllDataContext.Provider>
   );
 };
+
+// refuses while another action follows this one or excludes it
+const ActionDelete = (props) =>
+  getDeleteButton(props, "actions", "動作", {
+    actions: ["prevs.prev", "exclusiveWith"],
+  });
 
 // flags the initial action; on any other row, makes that action the initial one
 // and clears the flag everywhere else, so the scenario keeps a single start
