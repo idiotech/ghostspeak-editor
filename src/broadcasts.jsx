@@ -53,6 +53,7 @@ import {
   validateBeforeSubmit,
   silenceInput,
   longInputSx,
+  DEFAULT_GEOFENCE_RADIUS,
 } from "./actionCommon";
 
 import { useAllData, getActions } from "./serverCommon";
@@ -203,11 +204,14 @@ function getCondition(currentNode, data) {
         ? beacons[currentNode.beacon].beaconId
         : null,
       threshold: currentNode.beaconThreshold,
-      mode: currentNode.beaconType,
+      mode:
+        currentNode.conditionType === "GEOFENCE"
+          ? currentNode.geofenceMode || "ARRIVE"
+          : currentNode.beaconType,
       location: currentNode.geofenceCenter
         ? locations[currentNode.geofenceCenter]
         : null,
-      radius: currentNode.geofenceRadius || 14,
+      radius: currentNode.geofenceRadius || DEFAULT_GEOFENCE_RADIUS,
     };
   }
 }
