@@ -166,9 +166,11 @@ const locationCondition = () => (
     <NumberInput
       label="範圍 (整數)"
       source="geofenceRadius"
+      defaultValue={40}
       validate={[required(), number(), validateInteger]}
       step={1}
       slotProps={unit("公尺")}
+      helperText="進入範圍後開始偵測，到達中心點才觸發；GPS 中斷時依步行時間推算"
     />
   </>
 );
