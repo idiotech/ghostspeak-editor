@@ -730,11 +730,13 @@ function CloneButton(props) {
   async function cloneScenario() {
     await create();
 
-    function createFields(field, fieldName) {
+    // `refFields` hold ids of other records and are remapped like the id
+    function createFields(field, fieldName, refFields = []) {
       const values = Object.values(field);
       return values.map((a) => {
         const newA = JSON.parse(JSON.stringify(a));
         newA.id = idMap.get(a.id);
+        refFields.forEach((f) => updateValueFor(newA, f));
         return baseProvider.create(fieldName, {
           data: withoutDisplayFields(newA),
         });
@@ -748,7 +750,7 @@ function CloneButton(props) {
       ...createFields(sounds, "sounds"),
       ...createFields(mapStyles, "mapStyles"),
       ...createFields(variables, "variables"),
-      ...createFields(people, "people"),
+      ...createFields(people, "people", ["userPortrait"]),
     ]);
     function updateValuesFor(a) {
       updateValueFor(a, "geofenceCenter");
@@ -869,7 +871,19 @@ function CloneButton(props) {
       notify("複製成功", { type: "success" });
     } catch (e) {
       console.error("failed to clone", e);
-      notify("複製失敗；原因 = " + e, { type: "error" });
+      // leave nothing behind: drop the half-filled copy and its records
+      let leftover = "";
+      try {
+        await deleteScenarioRecords(cloneId);
+        await dataProvider.delete("scenarios", {
+          id: cloneId,
+          previousData: createData,
+        });
+      } catch (cleanupError) {
+        console.error("failed to remove the half-made clone", cleanupError);
+        leftover = `；未完成的副本《${createData.name}》需手動刪除`;
+      }
+      notify("複製失敗；原因 = " + e + leftover, { type: "error" });
     } finally {
       setLoading(false);
       refresh();
