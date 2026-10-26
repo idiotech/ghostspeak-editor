@@ -146,7 +146,7 @@ const InputForm = (props) => {
               {formData.hasSound && soundInput(formData)}
               <hr />
               <BooleanInput label="圖文訊息" source="hasPopup" />
-              {formData.hasPopup && popupInput()}
+              {formData.hasPopup && popupInput(formData)}
               <hr />
               <BooleanInput label="關閉圖文框" source="hasPopupDismissal" />
               {formData.hasPopupDismissal && popupDismissalInput()}
