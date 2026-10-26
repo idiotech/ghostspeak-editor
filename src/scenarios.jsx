@@ -166,7 +166,8 @@ function getCondition(currentNode, data) {
       threshold: active.beaconThreshold,
       mode: active.beaconType,
       location: active.geofenceCenter ? locations[active.geofenceCenter] : null,
-      radius: active.geofenceRadius || 14,
+      radius: active.geofenceRadius || 40,
+      mode: active.geofenceMode || "ARRIVE",
     };
   } else {
     return { type: "ALWAYS" };
@@ -865,7 +866,8 @@ function CloneButton(props) {
             }
             if (cond === "GEOFENCE") {
               rec.geofenceCenter = newA.geofenceCenter;
-              rec.geofenceRadius = newA.geofenceRadius || 14;
+              rec.geofenceRadius = newA.geofenceRadius || 40;
+              rec.geofenceMode = newA.geofenceMode || "ARRIVE";
             }
             const reply = newA[`triggers_${oldId}_userReply`];
             if (reply) {

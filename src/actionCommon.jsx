@@ -76,6 +76,10 @@ const beaconTypes = [
   { id: "ENTER", name: "接近" },
   { id: "EXIT", name: "離開" },
 ];
+const geofenceModes = [
+  { id: "ARRIVE", name: "走到中心點" },
+  { id: "SIGHT", name: "進入範圍即觸發" },
+];
 const callTypes = [
   { id: "CONNECTING", name: "未接通" },
   { id: "CONNECTED", name: "接通" },
@@ -162,13 +166,22 @@ const locationCondition = () => (
     >
       <AutocompleteInput optionText="name" />
     </LocationReferenceInput>
+    <SelectInput
+      label="觸發方式"
+      source="geofenceMode"
+      choices={geofenceModes}
+      defaultValue="ARRIVE"
+      validate={[required()]}
+    />
     <br />
     <NumberInput
       label="範圍 (整數)"
       source="geofenceRadius"
+      defaultValue={40}
       validate={[required(), number(), validateInteger]}
       step={1}
       slotProps={unit("公尺")}
+      helperText="走到中心點：進入範圍後開始偵測，到達中心點才觸發，GPS 中斷時依步行時間推算。進入範圍即觸發：一進入範圍就觸發，適合遠遠看到目標的場景"
     />
   </>
 );

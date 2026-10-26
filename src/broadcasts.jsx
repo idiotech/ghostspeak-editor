@@ -207,7 +207,8 @@ function getCondition(currentNode, data) {
       location: currentNode.geofenceCenter
         ? locations[currentNode.geofenceCenter]
         : null,
-      radius: currentNode.geofenceRadius || 14,
+      radius: currentNode.geofenceRadius || 40,
+      mode: currentNode.geofenceMode || "ARRIVE",
     };
   }
 }
