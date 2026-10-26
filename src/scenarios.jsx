@@ -157,6 +157,7 @@ function getTriggerList(currentNode, parentNode) {
 function getCondition(currentNode, data) {
   const { locations, beacons } = data;
   const active =
+    !currentNode.firstAction &&
     currentNode.prevs &&
     currentNode.prevs.find((p) => p.conditionType != "TEXT" && p.conditionType);
   if (active) {
@@ -506,49 +507,17 @@ function GpxButton(props) {
       return;
     }
 
-    function getNode(tree) {
-      const parents = tree.node.parents
-        ? tree.node.parents.map((p) => actions[p])
-        : [];
-      const condition = getCondition(tree.node, data);
-      return {
-        name: tree.node.firstAction ? "initial" : tree.node.id,
-        children: tree.node.children || [],
-        exclusiveWith: tree.node.exclusiveWith || [],
-        triggers: getTriggers(tree.node, parents),
-        performances: getActions(tree.node, data, condition).map((a) => ({
-          action: a,
-          delay: a.delay === 0 || a.delay ? a.delay : tree.node.delay || 0,
-        })),
-      };
-    }
-
-    function getNodes(tree) {
+    // the trigger conditions in tree order; the route only needs the
+    // geofence locations, so missing sounds or images must not stop it
+    function getConditions(tree) {
       return tree.children.reduce(
-        (agg, c) => [...agg, ...getNodes(c)],
-        [getNode(tree)]
+        (agg, c) => [...agg, ...getConditions(c)],
+        [getCondition(tree.node, data)]
       );
     }
     try {
-      const payload = getNodes(actionTree);
-      const urlString = `${apiUrl}/v1/scenario/graphscript/${getRecordField(
-        record,
-        "id"
-      )}`;
-      const url = new URL(urlString);
-      const params = {
-        name: getRecordField(record, "name"),
-        overwrite: true,
-      };
-      url.search = new URLSearchParams(params).toString();
-
-      const points = payload
-        .map((n) =>
-          n.performances
-            .map((p) => p.action.content.condition)
-            .find((c) => c.type === "GEOFENCE")
-        )
-        .filter((c) => c)
+      const points = getConditions(actionTree)
+        .filter((c) => c.type === "GEOFENCE" && c.location)
         .map((c) => c.location)
         .map(
           (l) =>
@@ -811,8 +780,7 @@ function CloneButton(props) {
       }
       if (a.pictures) {
         a.pictures.forEach((p) => {
-          const newId = idMap.get(p.pictureId);
-          p.pictureId = newId;
+          updateValueFor(p, "pictureId");
         });
       }
     }
@@ -1058,7 +1026,8 @@ export function getActionTree(actions) {
   const initial = actions.find((a) => a.firstAction);
   const nodesSet = new Set();
   const parentMap = actions.reduce(function (m, a) {
-    if (a.prevs) {
+    // the initial action's previous steps are hidden in the form and may be stale
+    if (a.prevs && !a.firstAction) {
       a.prevs.forEach((p) => {
         const orig = m.get(p.prev) || [];
         m.set(p.prev, [...orig, a]);

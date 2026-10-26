@@ -74,6 +74,7 @@ export function findBrokenReferences(action, data) {
     optional(images, action.mapLogo, "地圖Logo");
   }
   if (action.hasGuideImage) required(images, action.guideImage, "指引圖片");
+  if (action.hasSilence) required(actions, action.silencedSound, "停止的聲音");
   if (action.hasVariableUpdate) {
     (action.variableUpdates || []).forEach((v) =>
       optional(variables, v?.variable, "變數")

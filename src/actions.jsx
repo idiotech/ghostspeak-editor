@@ -124,10 +124,11 @@ const ScenarioActionList = () => {
   );
 };
 
-// refuses while another action follows this one or excludes it
+// refuses while another action follows this one, excludes it or stops its sound
 const ActionDelete = (props) =>
   getDeleteButton(props, "actions", "動作", {
-    actions: ["prevs.prev", "exclusiveWith"],
+    actions: ["prevs.prev", "exclusiveWith", "silencedSound"],
+    broadcasts: ["silencedSound"],
   });
 
 // flags the initial action; on any other row, makes that action the initial one
@@ -160,9 +161,11 @@ const FirstActionButton = () => {
           })
         )
       );
+      // the initial action has no previous step; a leftover one would keep
+      // its old trigger condition and list it under its old parent
       await dataProvider.update("actions", {
         id: record.id,
-        data: { firstAction: true },
+        data: { firstAction: true, prevs: [] },
         previousData: record,
       });
       notify(`已將《${record.name}》設為開頭`, { type: "info" });
@@ -182,7 +185,7 @@ const FirstActionButton = () => {
         isOpen={open}
         loading={saving}
         title={`將《${record.name}》設為開頭`}
-        content="原本的開頭動作將不再是開頭，需要時請替它設定前一步。確定嗎？"
+        content="原本的開頭動作將不再是開頭，需要時請替它設定前一步；這個動作原有的前一步會被清除。確定嗎？"
         onConfirm={handleConfirm}
         onClose={() => setOpen(false)}
       />
@@ -235,7 +238,10 @@ const UserReplyInput = ({ prev }) => {
     { id: prev },
     { enabled: !!prev }
   );
-  const buttons = ((prevAction && prevAction.choices) || [])
+  // the same rule the export uses to decide whether the buttons are shown
+  const showsButtons =
+    prevAction && prevAction.hasPopup && !prevAction.allowNoReply;
+  const buttons = ((showsButtons && prevAction.choices) || [])
     .map((c) => c && c.choice)
     .filter((c) => c);
   if (buttons.length === 0) {
