@@ -7,7 +7,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -19,6 +18,8 @@ import {
   useNotify,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
+import { describeError, describeResponse } from "./errors";
 
 import { getRecordField } from "./utils";
 import { useState } from "react";
@@ -296,13 +297,13 @@ function SendButton(props) {
           type: "success",
         });
       } else {
-        notify("傳送失敗；原因 = " + failed.map((r) => r.status).join(", "), {
+        notify("傳送失敗：" + [...new Set(failed.map(describeResponse))].join("；"), {
           type: "error",
         });
       }
     } catch (e) {
       console.error("failed to send", e);
-      notify("傳送失敗；原因 = " + e, { type: "error" });
+      notify("傳送失敗：" + describeError(e), { type: "error" });
     } finally {
       setLoading(false);
     }

@@ -5,7 +5,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -25,6 +24,8 @@ import {
   SelectInput,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
+import { describeError, describeResponse } from "./errors";
 import { longInputSx } from "./inputWidth";
 
 import { useState } from "react";
@@ -82,13 +83,13 @@ function CatPublishButton() {
           if (response.ok) {
             notify("成功發佈分類", { type: "success" });
           } else {
-            notify("發佈失敗；原因 =" + response.body + " " + response.status, {
+            notify("發佈失敗：" + describeResponse(response), {
               type: "error",
             });
           }
         })
         .catch((e) => {
-          notify("發佈失敗；原因 =" + e, { type: "error" });
+          notify("發佈失敗：" + describeError(e), { type: "error" });
         })
         .finally(() => {
           setLoading(false);

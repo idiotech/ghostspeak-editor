@@ -6,7 +6,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -17,6 +16,7 @@ import {
   NumberField,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import { longInputSx } from "./inputWidth";
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";

@@ -7,7 +7,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -28,6 +27,8 @@ import {
   useDataProvider,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
+import { describeError, describeResponse } from "./errors";
 import { useState, useEffect } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
@@ -366,14 +367,14 @@ function PublishButton(props) {
               type: "success",
             });
           } else {
-            notify("發佈失敗；原因 =" + response.body + " " + response.status, {
+            notify("發佈失敗：" + describeResponse(response), {
               type: "error",
             });
           }
         })
         .catch((e) => {
           console.error("failed to publish", e);
-          notify("發佈失敗；原因 = " + e, { type: "error" });
+          notify("發佈失敗：" + describeError(e), { type: "error" });
         })
         .finally(() => {
           setLoading(false);
@@ -381,7 +382,7 @@ function PublishButton(props) {
         });
     } catch (e) {
       console.error("failed to publish", e);
-      notify("發佈失敗；原因 = " + e, { type: "error" });
+      notify("發佈失敗：" + describeError(e), { type: "error" });
       setLoading(false);
       setOpen(false);
     }
@@ -450,13 +451,13 @@ function UnpublishButton(props) {
           });
         } else {
           notify(
-            "解除發佈失敗；原因 =" + response.body + " " + response.status,
+            "解除發佈失敗：" + describeResponse(response),
             { type: "error" }
           );
         }
       })
       .catch((e) => {
-        notify("解除發佈失敗；原因 =" + e, { type: "error" });
+        notify("解除發佈失敗：" + describeError(e), { type: "error" });
       })
       .finally(() => {
         setLoading(false);
@@ -555,7 +556,7 @@ function GpxButton(props) {
       link.click();
     } catch (e) {
       console.error("error exporting gpx", e);
-      notify("路線檔產生失敗；原因 = " + e, { type: "error" });
+      notify("路線檔產生失敗：" + describeError(e), { type: "error" });
       setLoading(false);
       setOpen(false);
     }
@@ -641,13 +642,13 @@ function DeleteButton(props) {
         });
       } else {
         notify(
-          `刪除失敗；原因 = 無法解除發佈${response.body} ${response.status}`,
+          `刪除失敗：無法解除發佈，${describeResponse(response)}`,
           { type: "error" }
         );
       }
     } catch (e) {
       console.error("failed to delete scenario", e);
-      notify("刪除失敗；原因 =" + e, { type: "error" });
+      notify("刪除失敗：" + describeError(e), { type: "error" });
     } finally {
       setLoading(false);
       refresh();
@@ -883,7 +884,7 @@ function CloneButton(props) {
         console.error("failed to remove the half-made clone", cleanupError);
         leftover = `；未完成的副本《${createData.name}》需手動刪除`;
       }
-      notify("複製失敗；原因 = " + e + leftover, { type: "error" });
+      notify("複製失敗：" + describeError(e) + leftover, { type: "error" });
     } finally {
       setLoading(false);
       refresh();

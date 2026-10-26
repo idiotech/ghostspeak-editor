@@ -7,7 +7,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -35,6 +34,7 @@ import {
   AutocompleteInput,
   useGetOne,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import FlagIcon from "@mui/icons-material/Flag";
 
 import {
@@ -68,6 +68,7 @@ import {
 
 import { getRecordField } from "./utils";
 import { getDeleteButton } from "./deleteResource";
+import { describeError } from "./errors";
 import { useAllData } from "./serverCommon";
 import { AllDataContext, BrokenReferencesField } from "./brokenReferences";
 import { DummyList } from "./dummy";
@@ -171,7 +172,8 @@ const FirstActionButton = () => {
       notify(`已將《${record.name}》設為開頭`, { type: "info" });
       refresh();
     } catch (e) {
-      notify(`設定開頭失敗：${e.message}`, { type: "error" });
+      console.error("failed to set the first action", e);
+      notify(`設定開頭失敗：${describeError(e)}`, { type: "error" });
     } finally {
       setSaving(false);
       setOpen(false);

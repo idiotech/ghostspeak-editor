@@ -6,7 +6,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -15,6 +14,7 @@ import {
   required,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import { longInputSx } from "./inputWidth";
 
 import { MyImageField } from "./MyImageField";
