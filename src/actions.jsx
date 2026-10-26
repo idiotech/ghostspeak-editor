@@ -32,6 +32,8 @@ import {
   Confirm,
   useDataProvider,
   useRefresh,
+  AutocompleteInput,
+  useGetOne,
 } from "react-admin";
 import FlagIcon from "@mui/icons-material/Flag";
 
@@ -224,6 +226,64 @@ const EditToolbar = () => {
   );
 };
 
+// the reply text a TEXT condition waits for; when the previous action is a
+// dialog with buttons, offers those buttons instead of a free text field so the
+// author does not have to retype them
+const UserReplyInput = ({ prev }) => {
+  const { data: prevAction } = useGetOne(
+    "actions",
+    { id: prev },
+    { enabled: !!prev }
+  );
+  const buttons = ((prevAction && prevAction.choices) || [])
+    .map((c) => c && c.choice)
+    .filter((c) => c);
+  if (buttons.length === 0) {
+    return (
+      <TextInput
+        multiline
+        label="文字"
+        source="userReply"
+        sx={longInputSx}
+        validate={[required()]}
+      />
+    );
+  }
+  const allowTextReply = !!prevAction.allowTextReply;
+  return (
+    <FormDataConsumer>
+      {({ scopedFormData }) => {
+        const current = scopedFormData && scopedFormData.userReply;
+        const choices = buttons.map((b) => ({ id: b, name: b }));
+        // keep a value that no longer matches any button visible, and say so
+        const stale = current && !buttons.includes(current);
+        if (stale) choices.push({ id: current, name: current });
+        return (
+          <AutocompleteInput
+            label="文字"
+            source="userReply"
+            choices={choices}
+            sx={longInputSx}
+            validate={[required()]}
+            onCreate={
+              allowTextReply ? (text) => ({ id: text, name: text }) : undefined
+            }
+            createLabel="輸入其他文字..."
+            createItemLabel="使用「%{item}」"
+            helperText={
+              stale && !allowTextReply
+                ? "上個動作沒有這個按鈕，請重新選擇"
+                : allowTextReply
+                ? "可選按鈕，或輸入打字回應的文字"
+                : "上個動作的回應按鈕"
+            }
+          />
+        );
+      }}
+    </FormDataConsumer>
+  );
+};
+
 const InputForm = (props) => {
   return (
     <SimpleForm validate={validateBeforeSubmit} toolbar={<EditToolbar />}>
@@ -302,13 +362,7 @@ const InputForm = (props) => {
                             scopedFormData.conditionType === "TEXT" && (
                               <>
                                 {!scopedFormData.fallback && (
-                                  <TextInput
-                                    multiline
-                                    label="文字"
-                                    source="userReply"
-                                    sx={longInputSx}
-                                    validate={[required()]}
-                                  />
+                                  <UserReplyInput prev={scopedFormData.prev} />
                                 )}
                                 {
                                   <BooleanInput
