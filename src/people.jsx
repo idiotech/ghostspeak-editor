@@ -4,13 +4,13 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   EditButton,
   TextInput,
   required,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import { getDeleteButton } from "./deleteResource";
 import ImageReferenceInput from "./ImageReferenceInput";
 

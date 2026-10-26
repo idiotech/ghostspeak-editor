@@ -1,4 +1,5 @@
 import { getRecordField } from "./utils";
+import { describeError } from "./errors";
 import { getCurrentScenario } from "./currentScenario";
 import {
   Button,
@@ -85,7 +86,8 @@ export function getDeleteButton(props, resource, resourceName, references) {
         });
       }
     } catch (e) {
-      notify("刪除失敗；原因 =" + e, { type: "error" });
+      console.error("failed to delete", e);
+      notify("刪除失敗：" + describeError(e), { type: "error" });
     }
     setLoading(false);
     setOpen(false);

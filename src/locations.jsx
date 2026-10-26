@@ -7,13 +7,13 @@ import {
   Create,
   Edit,
   SimpleShowLayout,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
   DateTimeInput,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import { longInputSx } from "./inputWidth";
 
 import { getDeleteButton } from "./deleteResource";
