@@ -795,51 +795,41 @@ const PopupInput = ({ formData, enableDelay }) => {
       <h4>
         <u>示意圖</u>
       </h4>
-      依Android版佈局繪製，實際顯示仍依手機而定。
-      <table>
-        {hasAlert && (
-          <tr>
-            <td>
-              <AlertPreview {...previewProps} />
-            </td>
-          </tr>
-        )}
+      依Android版佈局繪製；劇本自訂的按鈕、面板顏色與首頁背景不在此反映，實際顯示仍依手機而定。
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "flex-start",
+          gap: 16,
+          marginTop: 8,
+        }}
+      >
+        {hasAlert && <AlertPreview {...previewProps} />}
         {hasDialog && (
-          <tr>
-            <td>
-              <DialogPreview
-                {...previewProps}
-                sender={
-                  sender && {
-                    name: sender.name,
-                    portraitSrc: senderImage?.image?.src,
-                  }
-                }
-              />
-            </td>
-          </tr>
+          <DialogPreview
+            {...previewProps}
+            sender={
+              sender && {
+                name: sender.name,
+                portraitSrc: senderImage?.image?.src,
+              }
+            }
+          />
         )}
         {hasIntro && (
-          <tr>
-            <td>
-              <IntroPreview
-                {...previewProps}
-                scenarioName={getCurrentScenarioName()}
-              />
-            </td>
-          </tr>
+          <IntroPreview
+            {...previewProps}
+            scenarioName={getCurrentScenarioName()}
+          />
         )}
         {hasDialer && (
-          <tr>
-            <td>
-              <img
-                src="https://storage.googleapis.com/daqiaotou/editor/image/dialer.png"
-                width="300"
-              />
-            </td>
-          </tr>
+          <img
+            src="https://storage.googleapis.com/daqiaotou/editor/image/dialer.png"
+            width="300"
+          />
         )}
-      </table>
+      </div>
     </>
   );
   return (
