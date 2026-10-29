@@ -11,9 +11,11 @@ import * as React from "react";
 
 const phoneWidth = 360;
 const phoneHeight = 740;
-// Roboto and Noto Sans CJK, as on Android (index.html loads them)
+// Roboto and Noto Sans CJK, as on Android
 const fontFamily =
   "Roboto, 'Noto Sans TC', 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+const fontsHref =
+  "https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;900&family=Noto+Sans+TC:wght@400;500;900&display=swap";
 const textPrimary = "#F2F2F7"; // text_primary
 const textSecondary = "rgba(242, 242, 247, 0.7)"; // text_secondary
 const textHint = "#636366"; // text_hint
@@ -21,9 +23,22 @@ const textBlack = "#20221B"; // text_black: BigButtonStyle and SmallButtonStyle
 const introStartText = "#4B3E20"; // intro_start_text: dialog and intro choices
 const hairline = "rgba(255, 255, 255, 0.3)"; // transparent_white_30
 const buttonBackground = "rgba(104, 227, 220, 0.8)"; // button_background
+const statusBarScrim = "linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0))"; // status_bar_scrim
+
+// the fonts are only for the previews, so the page loads them when one shows
+function useAppFonts() {
+  React.useEffect(() => {
+    if (document.querySelector(`link[href="${fontsHref}"]`)) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = fontsHref;
+    document.head.appendChild(link);
+  }, []);
+}
 
 // the phone's screen, edge to edge under a transparent status bar
 function Phone({ background, children }) {
+  useAppFonts();
   return (
     <div
       style={{
@@ -41,7 +56,7 @@ function Phone({ background, children }) {
       }}
     >
       {background}
-      <StatusBar />
+      {statusBar}
       {children}
     </div>
   );
@@ -169,7 +184,7 @@ function MapBackground() {
           strokeWidth="2"
         />
       </svg>
-      {/* the scrim under the status bar */}
+      {/* the scrim under the status bar: activity_map.xml's 96dp view */}
       <div
         style={{
           position: "absolute",
@@ -177,10 +192,143 @@ function MapBackground() {
           left: 0,
           right: 0,
           height: 96,
-          background: "linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0))", // status_bar_scrim
+          background: statusBarScrim,
         }}
       />
     </>
+  );
+}
+
+// the intro screen behind the script: activity_intro.xml's background picture
+// and logo (the app's own, unless the story sets its own), and the top bar's
+// scrim and settings button (setting/res/layout/top_bar.xml)
+function IntroBackground() {
+  return (
+    <>
+      <img
+        src="/preview/intro_background.jpg"
+        alt=""
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+        }}
+      />
+      <img
+        src="/preview/intro_logo.png"
+        alt=""
+        style={{
+          position: "absolute",
+          width: 139,
+          height: 79,
+          objectFit: "contain",
+          left: (phoneWidth - 139) / 2,
+          top: (phoneHeight * 0.59 - 79) / 2,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 93,
+          background: statusBarScrim,
+        }}
+      />
+      <svg
+        width="40"
+        height="40"
+        viewBox="-20 -20 40 40"
+        style={{ position: "absolute", top: 53, right: 16 }}
+      >
+        <circle r="20" fill="rgba(0, 0, 0, 0.45)" />
+        <g stroke="white" strokeWidth="2" fill="none">
+          <circle r="4" />
+          <circle r="7.5" strokeDasharray="2.9 3" strokeWidth="4" />
+        </g>
+      </svg>
+    </>
+  );
+}
+
+// the static parts of the screens, built once so that typing in the form
+// only re-renders the panels
+const statusBar = <StatusBar />;
+const mapBackground = <MapBackground />;
+const introBackground = <IntroBackground />;
+
+// A ScrollView: shows the start of its content, or the end when `bottom` is
+// set (the dialog scrolls to its newest message), and marks the clipped edge
+// when there is more than fits, since the phone scrolls where this cannot.
+function ScrollArea({ bottom, style, innerStyle, children }) {
+  const ref = React.useRef(null);
+  const [clipped, setClipped] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const measure = () => {
+      if (bottom) el.scrollTop = el.scrollHeight;
+      setClipped(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    // pictures change the height once they load
+    const pictures = Array.from(el.querySelectorAll("img"));
+    pictures.forEach((p) => p.addEventListener("load", measure));
+    return () =>
+      pictures.forEach((p) => p.removeEventListener("load", measure));
+  });
+  return (
+    <div style={{ position: "relative", minHeight: 0, ...style }}>
+      <div
+        ref={ref}
+        style={{
+          boxSizing: "border-box",
+          height: "100%",
+          overflow: "hidden",
+          ...innerStyle,
+        }}
+      >
+        {children}
+      </div>
+      {clipped && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            [bottom ? "top" : "bottom"]: 0,
+            height: 48,
+            display: "flex",
+            alignItems: bottom ? "flex-start" : "flex-end",
+            justifyContent: "center",
+            paddingBottom: bottom ? 0 : 6,
+            paddingTop: bottom ? 6 : 0,
+            background: `linear-gradient(${
+              bottom ? "" : "to top, "
+            }rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0))`,
+            pointerEvents: "none",
+          }}
+        >
+          <span
+            style={{
+              padding: "2px 10px",
+              borderRadius: 10,
+              background: "rgba(0, 0, 0, 0.6)",
+              color: "white",
+              fontSize: 11,
+              lineHeight: "16px",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {bottom ? "▲ 手機上可往上捲動" : "▼ 手機上可往下捲動"}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -201,6 +349,7 @@ const panelStyle = {
 const buttonBase = {
   boxSizing: "border-box",
   minHeight: 48,
+  padding: "8px 10px",
   background: buttonBackground,
   borderRadius: 12,
   boxShadow: "0 1px 1px rgba(0, 0, 0, 0.24), 0 1px 3px rgba(0, 0, 0, 0.12)",
@@ -210,26 +359,22 @@ const buttonBase = {
   textAlign: "center",
   overflowWrap: "anywhere",
 };
-// BigButtonStyle: 16sp sans-serif-black, spaced out, as written
-const bigButton = {
-  ...buttonBase,
-  padding: "8px 10px",
+// BigButtonStyle's type: 16sp sans-serif-black, spaced out, as written
+const bigType = {
   fontSize: 16,
   lineHeight: "19px",
   fontWeight: 900,
   letterSpacing: "0.1em",
-  color: textBlack,
 };
-// SmallButtonStyle and dialog_choice_button: Material's 14sp medium capitals
-const smallButton = {
-  ...buttonBase,
-  padding: "8px 10px",
+// SmallButtonStyle's and dialog_choice_button's: Material's 14sp medium capitals
+const smallType = {
   fontSize: 14,
   lineHeight: "16px",
   fontWeight: 500,
   textTransform: "uppercase",
-  color: textBlack,
 };
+const bigButton = { ...buttonBase, ...bigType, color: textBlack };
+const smallButton = { ...buttonBase, ...smallType, color: textBlack };
 
 // the horizontal row of choice buttons, each with layout_weight 1 and 8dp
 // of padding (alert_choice_button.xml, dialog_choice_button.xml)
@@ -261,8 +406,8 @@ function ButtonRow({ choices, big, color, style }) {
   );
 }
 
-// the typed-reply row: an EditText in the button style on drawable/text_input,
-// then the send button 16dp to its right
+// the typed-reply row: an EditText in the button style on drawable/text_input
+// at 16sp, then the send button 16dp to its right
 function TextReply({
   big,
   label = "送出",
@@ -274,6 +419,9 @@ function TextReply({
     <div style={{ display: "flex", alignItems: "center", ...style }}>
       <div
         style={{
+          ...(big ? bigType : smallType),
+          fontSize: 16,
+          lineHeight: "19px",
           flex: "1 1 0",
           minWidth: 0,
           boxSizing: "border-box",
@@ -283,10 +431,6 @@ function TextReply({
           border: `1px solid ${textHint}`,
           borderRadius: 13,
           color: textHint,
-          fontSize: 16,
-          lineHeight: "19px",
-          fontWeight: big ? 900 : 500,
-          letterSpacing: big ? "0.1em" : 0,
           display: "flex",
           alignItems: "center",
           ...itemStyle,
@@ -309,11 +453,12 @@ function TextReply({
   );
 }
 
-// 提示視窗: activity_single_popup.xml, centred over the map
+// 提示視窗: activity_single_popup.xml, centred over the map; the panel grows
+// with its content up to the screen's margins, then scrolls
 export function AlertPreview({ text, choices, allowTextReply, imageSrc }) {
   const hasInput = choices.length > 0 || allowTextReply;
   return (
-    <Phone background={<MapBackground />}>
+    <Phone background={mapBackground}>
       <div
         style={{
           position: "absolute",
@@ -330,61 +475,61 @@ export function AlertPreview({ text, choices, allowTextReply, imageSrc }) {
             maxHeight: phoneHeight - 48,
           }}
         >
-          {imageSrc && (
-            <img
-              src={imageSrc}
-              alt=""
-              style={{
-                display: "block",
-                width: "100%",
-                flex: "0 1 auto",
-                minHeight: 0,
-                objectFit: "contain",
-                boxSizing: "border-box",
-                padding: 1,
-                borderRadius: "30px 30px 0 0",
-              }}
-            />
-          )}
-          {(text || hasInput) && (
-            <div style={{ flex: "0 0 auto", paddingTop: 8, paddingBottom: 32 }}>
-              {text && (
-                <div
-                  style={{
-                    margin: "24px 16px 0",
-                    padding: "0 20px",
-                    fontSize: 17,
-                    lineHeight: "24px",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {text}
-                </div>
-              )}
-              {hasInput && (
-                <div style={{ marginTop: 16 }}>
-                  {choices.length > 0 && (
-                    <ButtonRow
-                      choices={choices}
-                      big
-                      color={textBlack}
-                      style={{ margin: "0 16px" }}
-                    />
-                  )}
-                  {allowTextReply && (
-                    <TextReply
-                      big
-                      style={{
-                        margin: choices.length > 0 ? "16px 16px 0" : "0 16px",
-                        padding: "0 8px",
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          <ScrollArea style={{ flex: "0 1 auto" }}>
+            {imageSrc && (
+              <img
+                src={imageSrc}
+                alt=""
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "auto",
+                  boxSizing: "border-box",
+                  padding: 1,
+                  borderRadius: "30px 30px 0 0",
+                }}
+              />
+            )}
+            {(text || hasInput) && (
+              <div style={{ paddingTop: 8, paddingBottom: 32 }}>
+                {text && (
+                  <div
+                    style={{
+                      margin: "24px 16px 0",
+                      padding: "0 20px",
+                      fontSize: 17,
+                      lineHeight: "24px",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {text}
+                  </div>
+                )}
+                {hasInput && (
+                  <div style={{ marginTop: 16 }}>
+                    {choices.length > 0 && (
+                      <ButtonRow
+                        choices={choices}
+                        big
+                        color={textBlack}
+                        style={{ margin: "0 16px" }}
+                      />
+                    )}
+                    {allowTextReply && (
+                      <TextReply
+                        big
+                        style={{
+                          margin: choices.length > 0 ? "16px 16px 0" : "0 16px",
+                          padding: "0 8px",
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </ScrollArea>
         </div>
       </div>
     </Phone>
@@ -504,7 +649,7 @@ export function DialogPreview({
 }) {
   const hasInput = choices.length > 0 || allowTextReply;
   return (
-    <Phone background={<MapBackground />}>
+    <Phone background={mapBackground}>
       <div
         style={{
           position: "absolute",
@@ -521,22 +666,16 @@ export function DialogPreview({
             height: phoneHeight * 0.84,
           }}
         >
-          <div
-            style={{
-              flex: "1 1 0",
-              minHeight: 0,
-              overflow: "hidden",
-              padding: "0 24px 24px",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "flex-end",
-            }}
+          <ScrollArea
+            bottom
+            style={{ flex: "1 1 0" }}
+            innerStyle={{ padding: "0 24px 24px" }}
           >
             <Bubble self text="……" />
             {(text || imageSrc) && (
               <Bubble text={text} imageSrc={imageSrc} sender={sender} />
             )}
-          </div>
+          </ScrollArea>
           {hasInput && (
             <div
               style={{
@@ -563,45 +702,13 @@ export function DialogPreview({
   );
 }
 
-// the intro screen behind the script: activity_intro.xml's background picture
-// and logo (the app's own, unless the story sets its own)
-function IntroBackground() {
-  return (
-    <>
-      <img
-        src="/preview/intro_background.jpg"
-        alt=""
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-        }}
-      />
-      <img
-        src="/preview/intro_logo.png"
-        alt=""
-        style={{
-          position: "absolute",
-          width: 139,
-          height: 79,
-          left: (phoneWidth - 139) / 2,
-          top: (phoneHeight * 0.59 - 79) / 2,
-        }}
-      />
-    </>
-  );
-}
-
 // 前情提要: fragment_intro_script.xml, straight on the intro screen without a
 // panel; the text starts 40% of the way down and the buttons stack at the
 // bottom
 export function IntroPreview({ text, choices, allowTextReply, scenarioName }) {
   const hasInput = choices.length > 0 || allowTextReply;
   return (
-    <Phone background={<IntroBackground />}>
+    <Phone background={introBackground}>
       <div
         style={{
           position: "absolute",
@@ -613,7 +720,7 @@ export function IntroPreview({ text, choices, allowTextReply, scenarioName }) {
           flexDirection: "column",
         }}
       >
-        <div style={{ flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
+        <ScrollArea style={{ flex: "1 1 0" }}>
           <div style={{ paddingBottom: 16 }}>
             <div style={{ height: phoneHeight * 0.4 }} />
             <div style={{ paddingBottom: 16 }}>
@@ -641,7 +748,7 @@ export function IntroPreview({ text, choices, allowTextReply, scenarioName }) {
               </div>
             </div>
           </div>
-        </div>
+        </ScrollArea>
         {hasInput && (
           <div style={{ flex: "0 0 auto", paddingTop: 16, marginBottom: 16 }}>
             {choices.length > 0 && (
