@@ -111,7 +111,8 @@ const ScenarioActionList = () => {
   return (
     <AllDataContext.Provider value={data}>
       <List title={<Title />} perPage={100} filters={actionFilters}>
-        <Datagrid rowClick={false}>
+        {/* no bulk delete: only ActionDelete checks that nothing still refers to the action */}
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <FunctionField label="編號" render={getRowIndex} />
           <BrokenReferencesField label="檢查" />
           <FirstActionButton label="開頭" />
