@@ -58,8 +58,11 @@ import {
 
 import { useAllData, getActions } from "./serverCommon";
 import {
-  AllDataContext,
-  BrokenReferencesField,
+  ProblemsContext,
+  useBrokenReferences,
+  NameWithWarning,
+  ProblemsSummary,
+  OnlyProblems,
   BrokenReferencesMessage,
   findBrokenReferences,
 } from "./brokenReferences";
@@ -85,21 +88,36 @@ export const BroadcastList = () => {
 
 const ScenarioBroadcastList = () => {
   const data = useAllData();
+  const problems = useBrokenReferences(data.broadcasts, data);
+  const [onlyProblems, setOnlyProblems] = React.useState(false);
   return (
-    <AllDataContext.Provider value={data}>
+    <ProblemsContext.Provider value={problems}>
       <List title={<Title />} perPage={100} filters={broadcastFilters}>
-        <Datagrid rowClick={false} bulkActionButtons={false}>
-          <TextField label="編號" source="rowIndex" />
-          <BrokenReferencesField label="檢查" />
-          <TextField label="名稱" source="name" />
-          <FunctionField label="條件" render={getConditionIcon} />
-          <FunctionField label="內容" render={getContentIcon} />
-          <EditButton label="編輯" />
-          <SendButton label="傳送" />
-          <DeleteButton label="" redirect={false} />
-        </Datagrid>
+        <ProblemsSummary
+          problems={problems}
+          records={data.broadcasts}
+          label="廣播"
+          hint="傳送前請修正"
+          onlyProblems={onlyProblems}
+          onToggle={setOnlyProblems}
+        />
+        <OnlyProblems
+          enabled={onlyProblems}
+          problems={problems}
+          records={data.broadcasts}
+        >
+          <Datagrid rowClick={false} bulkActionButtons={false}>
+            <TextField label="編號" source="rowIndex" />
+            <NameWithWarning label="名稱" source="name" />
+            <FunctionField label="條件" render={getConditionIcon} />
+            <FunctionField label="內容" render={getContentIcon} />
+            <EditButton label="編輯" />
+            <SendButton label="傳送" />
+            <DeleteButton label="" redirect={false} />
+          </Datagrid>
+        </OnlyProblems>
       </List>
-    </AllDataContext.Provider>
+    </ProblemsContext.Provider>
   );
 };
 
