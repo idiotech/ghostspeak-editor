@@ -64,6 +64,8 @@ import {
   guideImageRemovalInput,
   silenceInput,
   getPrevDesc,
+  getButtons,
+  nextStepState,
   longInputSx,
 } from "./actionCommon";
 
@@ -242,9 +244,7 @@ const ActionSaveButton = ({ label }) => {
             type: "info",
             messageArgs: { smart_count: 1 },
           });
-          redirect("create", "actions", undefined, undefined, {
-            record: { prevs: [{ prev: data.id, conditionType: "ALWAYS" }] },
-          });
+          redirect("create", "actions", undefined, undefined, nextStepState(data.id));
         },
       }}
     />
@@ -272,12 +272,7 @@ const UserReplyInput = ({ prev }) => {
     { id: prev },
     { enabled: !!prev }
   );
-  // the same rule the export uses to decide whether the buttons are shown
-  const showsButtons =
-    prevAction && prevAction.hasPopup && !prevAction.allowNoReply;
-  const buttons = ((showsButtons && prevAction.choices) || [])
-    .map((c) => c && c.choice)
-    .filter((c) => c);
+  const buttons = getButtons(prevAction);
   if (buttons.length === 0) {
     return (
       <TextInput
@@ -584,7 +579,7 @@ export const ActionCreate = () => {
 // reads the old record from Firestore.
 export const ActionEdit = () => {
   return (
-    <Edit title={<Title />} mutationMode="pessimistic">
+    <Edit title={<Title />} mutationMode="pessimistic" redirect={false}>
       <InputForm showid="true" />
     </Edit>
   );
@@ -596,16 +591,7 @@ function NextButton(props) {
     <CreateButton
       label="下一步"
       to="/actions/create"
-      state={{
-        record: {
-          prevs: [
-            {
-              prev: getRecordField(record, "id"),
-              conditionType: "ALWAYS",
-            },
-          ],
-        },
-      }}
+      state={nextStepState(getRecordField(record, "id"))}
     />
   );
 }

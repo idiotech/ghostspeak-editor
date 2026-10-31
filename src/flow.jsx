@@ -12,7 +12,12 @@ import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import TextField from "@mui/material/TextField";
-import { getPrevDesc } from "./actionCommon";
+import {
+  getPrevDesc,
+  getButtons,
+  nextStepState,
+  conditionTypes,
+} from "./actionCommon";
 import { describeError } from "./errors";
 
 const allActions = {
@@ -22,23 +27,28 @@ const allActions = {
 
 // how a step follows its previous action, from the step's prev entry
 function describeTrigger(entry, prevAction) {
-  switch (entry.conditionType) {
-    case "TEXT":
-      return entry.fallback || entry.userReply === "fallback:"
-        ? "任意回答"
-        : `回答「${entry.userReply}」`;
-    case "GEOFENCE":
-      return "GPS觸發";
-    case "BEACON":
-      return "Beacon觸發";
-    default:
-      return prevAction ? getPrevDesc(prevAction) + "之後" : "";
+  if (entry.conditionType === "TEXT") {
+    if (entry.fallback || entry.userReply === "fallback:") return "任意回答";
+    return entry.userReply ? `回答「${entry.userReply}」` : "文字回應（未設定）";
   }
+  if (entry.conditionType && entry.conditionType !== "ALWAYS")
+    return conditionTypes.find((c) => c.id === entry.conditionType)?.name;
+  return prevAction ? getPrevDesc(prevAction) + "之後" : "";
 }
 
 const Arrow = () => <span style={{ color: "#888" }}>➜</span>;
 
 const column = { display: "flex", flexDirection: "column", gap: 6 };
+
+const actionChip = (action, via, key) => (
+  <Chip
+    key={key}
+    component={Link}
+    to={`/actions/${action.id}`}
+    clickable
+    label={via ? `${action.name} · ${via}` : action.name}
+  />
+);
 
 // the action's place in the story: its previous steps, itself, and the
 // steps that follow it, each a link to that action's editor
@@ -47,25 +57,17 @@ export const FlowStrip = () => {
   const { data: actions } = useGetList("actions", allActions, {
     enabled: !!record?.id,
   });
+  const { byId, followers } = React.useMemo(() => {
+    const byId = Object.fromEntries((actions || []).map((a) => [a.id, a]));
+    const followers = (actions || []).flatMap((a) =>
+      (a.prevs || [])
+        .filter((p) => p && p.prev === record?.id)
+        .map((p) => ({ action: a, via: describeTrigger(p, record) }))
+    );
+    return { byId, followers };
+  }, [actions, record]);
   if (!record?.id || !actions) return null;
-  const byId = Object.fromEntries(actions.map((a) => [a.id, a]));
-  const prevs = (record.firstAction ? [] : record.prevs || []).filter(
-    (p) => p && p.prev && byId[p.prev]
-  );
-  const followers = actions.flatMap((a) =>
-    (a.prevs || [])
-      .filter((p) => p && p.prev === record.id)
-      .map((p) => ({ action: a, via: describeTrigger(p, record) }))
-  );
-  const chip = (action, via, key) => (
-    <Chip
-      key={key}
-      component={Link}
-      to={`/actions/${action.id}`}
-      clickable
-      label={via ? `${action.name} · ${via}` : action.name}
-    />
-  );
+  const prevs = record.firstAction ? [] : (record.prevs || []).filter((p) => p);
   return (
     <div style={{ margin: "8px 0 16px" }}>
       <h3 style={{ margin: "0 0 8px" }}>流程位置</h3>
@@ -84,7 +86,18 @@ export const FlowStrip = () => {
             <Chip variant="outlined" color="error" label="沒有前一步" />
           ) : (
             prevs.map((p, i) =>
-              chip(byId[p.prev], describeTrigger(p, byId[p.prev]), i)
+              byId[p.prev] ? (
+                actionChip(byId[p.prev], describeTrigger(p, byId[p.prev]), i)
+              ) : (
+                // a previous step that was deleted: still in the record, so
+                // still exported; the author has to remove it below
+                <Chip
+                  key={i}
+                  variant="outlined"
+                  color="error"
+                  label="前一步已被刪除，請移除"
+                />
+              )
             )
           )}
         </div>
@@ -92,15 +105,11 @@ export const FlowStrip = () => {
         <Chip color="primary" label={record.name || "（這個動作）"} />
         <Arrow />
         <div style={column}>
-          {followers.map((f, i) => chip(f.action, f.via, i))}
+          {followers.map((f, i) => actionChip(f.action, f.via, i))}
           <Chip
             component={Link}
             to="/actions/create"
-            state={{
-              record: {
-                prevs: [{ prev: record.id, conditionType: "ALWAYS" }],
-              },
-            }}
+            state={nextStepState(record.id)}
             clickable
             variant="outlined"
             label="＋ 建下一步"
@@ -115,13 +124,19 @@ export const FlowStrip = () => {
 // branches are set up in one go; buttons that already have one are listed.
 export const BranchCreator = () => {
   const record = useRecordContext();
-  const choices = useWatch({ name: "choices" }) || [];
-  const destinations = useWatch({ name: "destinations" }) || [];
-  const allowNoReply = useWatch({ name: "allowNoReply" });
+  // the form's current values, since the author may be editing the buttons
+  const form = {
+    hasPopup: useWatch({ name: "hasPopup" }),
+    allowNoReply: useWatch({ name: "allowNoReply" }),
+    choices: useWatch({ name: "choices" }),
+  };
   const { isDirty } = useFormState();
-  const { data: actions, refetch } = useGetList("actions", allActions, {
-    enabled: !!record?.id,
-  });
+  const {
+    data: actions,
+    isPending,
+    error,
+    refetch,
+  } = useGetList("actions", allActions, { enabled: !!record?.id });
   const dataProvider = useDataProvider();
   const notify = useNotify();
   const redirect = useRedirect();
@@ -129,39 +144,42 @@ export const BranchCreator = () => {
   const [picked, setPicked] = React.useState({});
   const [busy, setBusy] = React.useState(false);
 
-  const texts = [
-    ...new Set(choices.map((c) => c && c.choice).filter((c) => c)),
-  ];
-  if (
-    !record?.id ||
-    allowNoReply ||
-    destinations.includes("DIALER") ||
-    texts.length === 0
-  )
-    return null;
+  const texts = React.useMemo(
+    () => [...new Set(getButtons(form))],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form.hasPopup, form.allowNoReply, form.choices]
+  );
+  // the follow-ups each button already has
+  const existing = React.useMemo(() => {
+    const map = new Map(texts.map((t) => [t, []]));
+    (actions || []).forEach((a) =>
+      (a.prevs || []).forEach((p) => {
+        if (p && p.prev === record?.id && p.conditionType === "TEXT" && map.has(p.userReply))
+          map.get(p.userReply).push(a);
+      })
+    );
+    return map;
+  }, [actions, record, texts]);
+
+  if (!record?.id || texts.length === 0) return null;
 
   const rows = texts.map((text) => ({
     text,
-    existing: (actions || []).filter((a) =>
-      (a.prevs || []).some(
-        (p) =>
-          p &&
-          p.prev === record.id &&
-          p.conditionType === "TEXT" &&
-          p.userReply === text
-      )
-    ),
+    existing: existing.get(text) || [],
     name: names[text] ?? `${text}之後`,
     picked: picked[text] ?? true,
   }));
   const toCreate = rows.filter(
     (r) => r.existing.length === 0 && r.picked && r.name.trim()
   );
+  // nothing is created until the list has loaded, or every button would
+  // look as if it had no follow-up yet
+  const listReady = !isPending && !error && !!actions;
 
   async function create(openFirst) {
     setBusy(true);
+    const created = [];
     try {
-      const created = [];
       for (const r of toCreate) {
         const { data } = await dataProvider.create("actions", {
           data: {
@@ -173,17 +191,22 @@ export const BranchCreator = () => {
         created.push(data);
       }
       notify(`已建立 ${created.length} 個下一步`, { type: "success" });
-      await refetch();
       if (openFirst && created[0]) redirect("edit", "actions", created[0].id);
     } catch (e) {
       console.error("failed to create the branches", e);
-      notify("建立失敗：" + describeError(e), { type: "error" });
+      notify(
+        `建立失敗：${describeError(e)}` +
+          (created.length > 0 ? `（已建立 ${created.length} 個）` : ""),
+        { type: "error" }
+      );
     } finally {
+      // whatever happened, show the branches that now exist
+      await refetch();
       setBusy(false);
     }
   }
 
-  const disabled = busy || isDirty || toCreate.length === 0;
+  const disabled = busy || isDirty || !listReady || toCreate.length === 0;
   return (
     <div style={{ margin: "8px 0 16px" }}>
       <h4 style={{ margin: "0 0 4px" }}>
@@ -229,7 +252,9 @@ export const BranchCreator = () => {
                 )}
               </td>
               <td style={{ padding: "4px 8px" }}>
-                {r.existing.length === 0 ? (
+                {!listReady ? (
+                  <span style={{ color: "#888" }}>讀取中…</span>
+                ) : r.existing.length === 0 ? (
                   <span style={{ color: "#888" }}>尚未建立</span>
                 ) : (
                   r.existing.map((a) => (
@@ -271,6 +296,11 @@ export const BranchCreator = () => {
         {isDirty && (
           <span style={{ color: "#666", fontSize: 13 }}>
             先儲存這個動作，再建立。
+          </span>
+        )}
+        {error && (
+          <span style={{ color: "#d32f2f", fontSize: 13 }}>
+            動作列表讀取失敗：{describeError(error)}
           </span>
         )}
       </div>

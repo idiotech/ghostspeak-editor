@@ -252,6 +252,18 @@ export function getMainType(action) {
     : "button-style";
 }
 
+// the reply buttons the app shows for a popup: none when the popup is off
+// or needs no reply; empty entries are skipped
+export function getButtons(action) {
+  if (!action || !action.hasPopup || action.allowNoReply) return [];
+  return (action.choices || []).map((c) => c && c.choice).filter((c) => c);
+}
+
+// the create page's prefill for an action that follows `id`
+export function nextStepState(id) {
+  return { record: { prevs: [{ prev: id, conditionType: "ALWAYS" }] } };
+}
+
 export function getPrevDesc(action) {
   switch (getMainType(action)) {
     case "dialog":
@@ -784,11 +796,10 @@ const PopupInput = ({ formData, enableDelay }) => {
   );
   const previewProps = {
     text: formData.text,
-    choices: (formData.choices || []).map((c) => (c && c.choice) || ""),
+    choices: getButtons(formData),
     allowTextReply: !!formData.allowTextReply && !formData.allowNoReply,
     imageSrc: firstImageSrc,
   };
-  if (formData.allowNoReply) previewProps.choices = [];
 
   const previewPane = (
     <>
