@@ -34,6 +34,9 @@ import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
+import DialogActions from "@mui/material/DialogActions";
+import MuiTextField from "@mui/material/TextField";
+import { PublishChecks } from "./scenarioChecks";
 import { useQueryClient } from "@tanstack/react-query";
 import { FirebaseDataProvider } from "react-admin-firebase";
 import * as xid from "./xid";
@@ -62,7 +65,7 @@ import { buildGPX, BaseBuilder } from "gpx-builder";
 const { Point, Track, Segment } = BaseBuilder.MODELS;
 
 const scenarioFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 // const cdnRoot = 'http://daqiaotou-storage.floraland.tw/ghostspeak_editor';
 
@@ -391,6 +394,7 @@ function PublishButton(props) {
   const name = getRecordField(record, "name");
   const confirm = (
     <span>
+      <PublishChecks actions={actions} />
       <p>你即將發佈《{name}》。使用者的進度將被中斷。確定嗎？</p>
       <p>
         (正式上架需求請與
@@ -680,7 +684,11 @@ function CloneButton(props) {
   const dataProvider = useDataProvider();
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const handleClick = () => setOpen(true);
+  const [cloneName, setCloneName] = useState("");
+  const handleClick = () => {
+    setCloneName(getRecordField(record, "name") + "（副本）");
+    setOpen(true);
+  };
   const handleDialogClose = () => setOpen(false);
 
   const {
@@ -716,7 +724,7 @@ function CloneButton(props) {
   const createData = JSON.parse(JSON.stringify(record));
   const cloneId = xid.next();
   createData.id = cloneId;
-  createData.name = getRecordField(record, "name") + "-" + cloneId;
+  createData.name = cloneName.trim();
   createData.cloned = true;
   updateValueFor(createData, "pictureId");
   createData.passcode = null;
@@ -898,18 +906,31 @@ function CloneButton(props) {
         onClick={handleClick}
         disabled={disabled || loading || !loaded}
       />
-      <Confirm
-        isOpen={open}
-        title="確認複製"
-        content={`你即將複製一份《${getRecordField(
-          record,
-          "name"
-        )}》；確定嗎？`}
-        onConfirm={handleConfirm}
-        onClose={handleDialogClose}
-        confirm="確認複製"
-        cancel="取消"
-      />
+      <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth="xs">
+        <DialogTitle>複製《{getRecordField(record, "name")}》</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            副本會包含所有動作、廣播、地點、圖片與聲音，並由你擁有。
+          </DialogContentText>
+          <MuiTextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="副本名稱"
+            value={cloneName}
+            onChange={(e) => setCloneName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button label="取消" onClick={handleDialogClose} />
+          <Button
+            label="確認複製"
+            variant="contained"
+            onClick={handleConfirm}
+            disabled={!cloneName.trim()}
+          />
+        </DialogActions>
+      </Dialog>
       <Blocker isOpen={loading} />
     </>
   );

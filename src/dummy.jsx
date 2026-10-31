@@ -1,19 +1,20 @@
-// in src/posts.js
 import * as React from "react";
-// tslint:disable-next-line:no-var-requires
-import { Datagrid, List, TextField } from "react-admin";
+import { Datagrid, List, TextField, Button, Link } from "react-admin";
 
-const Title = () => {
-  return <span>請先設定目前劇本</span>;
-};
+const Title = () => <span>請先選擇目前劇本</span>;
 
+// shown by every list until a scenario has been chosen to work on
 const EmptyPage = () => (
-  <div>
-    <h1>請先設定目前劇本 ;-)</h1>
-    <img
-      width={540}
-      height={960}
-      src="http://daqiaotou-storage.floraland.tw/images/nothing.jpg"
+  <div style={{ padding: 24 }}>
+    <h2>還沒有選擇要編輯的劇本</h2>
+    <p>
+      到劇本列表，在想編輯的劇本上按「設定為目前劇本」，這一頁就會顯示它的內容。
+    </p>
+    <Button
+      component={Link}
+      to="/scenarios"
+      label="前往劇本列表"
+      variant="contained"
     />
   </div>
 );
@@ -21,7 +22,7 @@ const EmptyPage = () => (
 export const DummyList = () => (
   <List title={<Title />} empty={<EmptyPage />} actions={false}>
     <Datagrid rowClick={false} bulkActionButtons={false}>
-      <TextField label="請先設定目前劇本" source="name" />
+      <TextField label="請先選擇目前劇本" source="name" />
     </Datagrid>
   </List>
 );

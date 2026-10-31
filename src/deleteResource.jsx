@@ -1,4 +1,5 @@
 import { getRecordField } from "./utils";
+import { findValues } from "./usage";
 import { describeError } from "./errors";
 import { getCurrentScenario } from "./currentScenario";
 import {
@@ -31,17 +32,6 @@ export function getDeleteButton(props, resource, resourceName, references) {
   const handleDialogClose = () => setOpen(false);
   const id = getRecordField(record, "id");
   const dataProvider = useDataProvider();
-  // values at a dotted path; arrays along the way are flattened, so
-  // "prevs.beacon" finds the beacon of every previous step
-  function findValues(record, path) {
-    return path
-      .split(".")
-      .reduce(
-        (values, field) =>
-          values.flatMap((v) => (v && v[field] ? v[field] : [])),
-        [record]
-      );
-  }
   async function getRecords(referencingResource) {
     if (referencingResource === "scenarios") {
       // the current scenario is the only one that can use this scenario's records

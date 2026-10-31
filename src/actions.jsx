@@ -82,7 +82,7 @@ import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 
 const actionFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {
@@ -104,7 +104,7 @@ const NoPrevs = () => {
 
 const getRowIndex = (record) => {
   const key = `a-${record.id}`;
-  return <div>{localStorage.getItem(key)}</div>;
+  return <div>{record.rowIndex ?? localStorage.getItem(key)}</div>;
 };
 
 export const ActionList = () => {

@@ -690,6 +690,13 @@ const PopupInput = ({ formData, enableDelay }) => {
                       <TextInput source="choice" label="選擇" />
                     </SimpleFormIterator>
                   </ArrayInput>
+                  {(formData.choices || []).some(
+                    (c) => c && c.choice && c.choice.length > 8
+                  ) && (
+                    <div style={{ color: "#ed6c02" }}>
+                      按鈕文字超過 8 個字，手機上可能換行或被截斷。
+                    </div>
+                  )}
                 </td>
               </tr>
             )}

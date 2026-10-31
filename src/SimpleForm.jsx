@@ -85,9 +85,14 @@ const InvalidFormNotice = () => {
   return null;
 };
 
-// SimpleForm whose invalid-form notice names the fields to fix
+// SimpleForm whose invalid-form notice names the fields to fix, and which
+// asks before leaving the page with unsaved edits
 const SimpleForm = ({ children, ...props }) => (
-  <RaSimpleForm disableInvalidFormNotification {...props}>
+  <RaSimpleForm
+    disableInvalidFormNotification
+    warnWhenUnsavedChanges
+    {...props}
+  >
     <InvalidFormNotice />
     {children}
   </RaSimpleForm>
