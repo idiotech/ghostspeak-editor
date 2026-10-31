@@ -70,6 +70,7 @@ import {
 import { getRecordField } from "./utils";
 import { getDeleteButton } from "./deleteResource";
 import { describeError } from "./errors";
+import { FlowStrip, BranchCreator } from "./flow";
 import { useAllData } from "./serverCommon";
 import {
   ProblemsContext,
@@ -360,6 +361,7 @@ const InputForm = (props) => {
                 sx={longInputSx}
               />{" "}
               <br />
+              <FlowStrip />
               <h3>觸發順序</h3>
               <hr />
               <BooleanInput label="開頭" source="firstAction" /> <br />
@@ -489,6 +491,7 @@ const InputForm = (props) => {
               <hr />
               <BooleanInput label="圖文訊息" source="hasPopup" />
               {formData.hasPopup && popupInput(formData, enableDelay)}
+              {formData.hasPopup && <BranchCreator />}
               <hr />
               <BooleanInput label="關閉圖文框" source="hasPopupDismissal" />
               {formData.hasPopupDismissal &&
