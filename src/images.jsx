@@ -40,7 +40,7 @@ export const ImageList = () => {
   if (getCurrentScenario()) {
     return (
       <List title={<Title />} filters={imageFilters}>
-        <Datagrid rowClick={false}>
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="名稱" source="name" />
           <MyImageField label="圖片" source="image.src" />

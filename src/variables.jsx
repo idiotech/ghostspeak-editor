@@ -46,7 +46,7 @@ export const VariableList = () => {
   if (getCurrentScenario())
     return (
       <List title={<Title />} filters={variableFilters}>
-        <Datagrid rowClick={false}>
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="名稱" source="name" />
           <NumberField label="初始值" source="value" />

@@ -50,7 +50,7 @@ export const MapStyleList = () => {
         sort={{ field: "name", order: "ASC" }}
         filters={mapStyleFilters}
       >
-        <Datagrid rowClick={false}>
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="名稱" source="name" />
           <FileField label="地圖樣式" source="mapStyle.src" title={"連結"} />
