@@ -928,7 +928,7 @@ export const ScenarioList = () => {
       perPage={25}
       filters={scenarioFilters}
     >
-      <Datagrid rowClick={false}>
+      <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField label="名稱" source="name" />
         <TextField label="說明" source="description" />
         <BooleanField label="正式上架" source="public" />

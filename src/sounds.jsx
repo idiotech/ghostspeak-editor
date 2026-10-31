@@ -52,7 +52,7 @@ export const SoundList = () => {
         sort={{ field: "name", order: "ASC" }}
         filters={soundFilters}
       >
-        <Datagrid rowClick={false}>
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="名稱" source="name" />
           <FileField label="音檔" source="sound.src" title={"連結"} />

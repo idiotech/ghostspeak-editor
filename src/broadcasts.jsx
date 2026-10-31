@@ -88,7 +88,7 @@ const ScenarioBroadcastList = () => {
   return (
     <AllDataContext.Provider value={data}>
       <List title={<Title />} perPage={100} filters={broadcastFilters}>
-        <Datagrid rowClick={false}>
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <BrokenReferencesField label="檢查" />
           <TextField label="名稱" source="name" />
