@@ -71,7 +71,13 @@ import { getRecordField } from "./utils";
 import { getDeleteButton } from "./deleteResource";
 import { describeError } from "./errors";
 import { useAllData } from "./serverCommon";
-import { AllDataContext, BrokenReferencesField } from "./brokenReferences";
+import {
+  ProblemsContext,
+  useBrokenReferences,
+  NameWithWarning,
+  ProblemsSummary,
+  OnlyProblems,
+} from "./brokenReferences";
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 
@@ -108,15 +114,29 @@ export const ActionList = () => {
 
 const ScenarioActionList = () => {
   const data = useAllData();
+  const problems = useBrokenReferences(data.actions, data);
+  const [onlyProblems, setOnlyProblems] = React.useState(false);
   return (
-    <AllDataContext.Provider value={data}>
+    <ProblemsContext.Provider value={problems}>
       <List title={<Title />} perPage={100} filters={actionFilters}>
-        {/* no bulk delete: only ActionDelete checks that nothing still refers to the action */}
-        <Datagrid rowClick={false} bulkActionButtons={false}>
-          <FunctionField label="編號" render={getRowIndex} />
-          <BrokenReferencesField label="檢查" />
-          <FirstActionButton label="開頭" />
-          <TextField label="名稱" source="name" />
+        <ProblemsSummary
+          problems={problems}
+          records={data.actions}
+          label="動作"
+          hint="發佈前請修正"
+          onlyProblems={onlyProblems}
+          onToggle={setOnlyProblems}
+        />
+        <OnlyProblems
+          enabled={onlyProblems}
+          problems={problems}
+          records={data.actions}
+        >
+          {/* no bulk delete: only ActionDelete checks that nothing still refers to the action */}
+          <Datagrid rowClick={false} bulkActionButtons={false}>
+            <FunctionField label="編號" render={getRowIndex} />
+            <FirstActionButton label="開頭" />
+            <NameWithWarning label="名稱" source="name" />
           <FunctionField label="條件" render={getConditionIcon} />
           <FunctionField label="內容" render={getContentIcon} />
           <EditButton label="編輯" />
@@ -127,11 +147,12 @@ const ScenarioActionList = () => {
               </ReferenceField>
             </SingleFieldList>
           </ArrayField>
-          <NextButton source="id" label="下一步" />
-          <ActionDelete />
-        </Datagrid>
+            <NextButton source="id" label="下一步" />
+            <ActionDelete />
+          </Datagrid>
+        </OnlyProblems>
       </List>
-    </AllDataContext.Provider>
+    </ProblemsContext.Provider>
   );
 };
 

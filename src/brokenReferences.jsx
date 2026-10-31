@@ -1,6 +1,16 @@
 import * as React from "react";
-import { useRecordContext } from "react-admin";
+import {
+  useRecordContext,
+  useResourceContext,
+  useListContext,
+  ListContextProvider,
+  useCreatePath,
+  Link,
+} from "react-admin";
 import Tooltip from "@mui/material/Tooltip";
+import Alert from "@mui/material/Alert";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import WarningIcon from "@mui/icons-material/Warning";
 
 // Lists the records an action or broadcast refers to that no longer exist,
@@ -83,20 +93,107 @@ export function findBrokenReferences(action, data) {
   return [...new Set(problems)];
 }
 
-// useAllData for the list, shared by every row's BrokenReferencesField
-export const AllDataContext = React.createContext(null);
+// the problems of every record in a list, keyed by id, computed once per
+// list rather than once per row
+export function useBrokenReferences(records, data) {
+  const loaded = data.loaded;
+  return React.useMemo(() => {
+    const problems = new Map();
+    if (!loaded) return problems;
+    Object.values(records || {}).forEach((r) => {
+      const p = findBrokenReferences(r, data);
+      if (p.length > 0) problems.set(r.id, p);
+    });
+    return problems;
+    // the maps inside data change identity only when they reload
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [records, loaded, ...Object.values(data)]);
+}
 
-// warns about records this row refers to that have been deleted
-export const BrokenReferencesField = () => {
+// the map from useBrokenReferences, for the rows of the list
+export const ProblemsContext = React.createContext(new Map());
+
+// the record's name, followed by a warning when something it refers to has
+// been deleted; the warning opens the record so it can be fixed
+export const NameWithWarning = ({ source = "name" }) => {
   const record = useRecordContext();
-  const data = React.useContext(AllDataContext);
-  if (!record || !data?.loaded) return null;
-  const problems = findBrokenReferences(record, data);
-  if (problems.length === 0) return null;
+  const resource = useResourceContext();
+  const createPath = useCreatePath();
+  const problems = React.useContext(ProblemsContext).get(record?.id);
+  if (!record) return null;
   return (
-    <Tooltip title={problems.join("、")}>
-      <WarningIcon color="error" />
-    </Tooltip>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      {record[source]}
+      {problems && (
+        <Tooltip title={problems.join("、")}>
+          <Link
+            to={createPath({ resource, type: "edit", id: record.id })}
+            style={{ display: "inline-flex" }}
+          >
+            <WarningIcon color="error" fontSize="small" />
+          </Link>
+        </Tooltip>
+      )}
+    </span>
+  );
+};
+
+// Above a list: the records that refer to deleted items, each linked so it
+// can be fixed, and a switch that narrows the list to them. Nothing when all
+// is well.
+export const ProblemsSummary = ({
+  problems,
+  records,
+  label,
+  hint,
+  onlyProblems,
+  onToggle,
+}) => {
+  const resource = useResourceContext();
+  const createPath = useCreatePath();
+  if (problems.size === 0) return null;
+  return (
+    <Alert
+      severity="warning"
+      sx={{ m: 1, alignItems: "center" }}
+      action={
+        <FormControlLabel
+          sx={{ mr: 0, whiteSpace: "nowrap" }}
+          control={
+            <Switch
+              checked={onlyProblems}
+              onChange={(e) => onToggle(e.target.checked)}
+            />
+          }
+          label="只看有問題的"
+        />
+      }
+    >
+      {problems.size} 個{label}參照了已刪除的項目，{hint}：
+      <ul style={{ margin: "4px 0 0", paddingLeft: "1.5em" }}>
+        {[...problems].map(([id, p]) => (
+          <li key={id}>
+            <Link to={createPath({ resource, type: "edit", id })}>
+              {records[id]?.name || id}
+            </Link>
+            ：{p.join("、")}
+          </li>
+        ))}
+      </ul>
+    </Alert>
+  );
+};
+
+// While the switch is on, the list shows only the flagged records, taken from
+// the whole scenario rather than the current page or search.
+export const OnlyProblems = ({ enabled, problems, records, children }) => {
+  const list = useListContext();
+  if (!enabled) return children;
+  const data = Object.values(records || {}).filter((r) => problems.has(r.id));
+  return (
+    <ListContextProvider value={{ ...list, data, total: data.length }}>
+      {children}
+    </ListContextProvider>
   );
 };
 
