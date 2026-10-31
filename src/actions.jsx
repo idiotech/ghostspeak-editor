@@ -20,6 +20,7 @@ import {
   FunctionField,
   AutocompleteArrayInput,
   ArrayField,
+  SingleFieldList,
   ReferenceField,
   Toolbar,
   SaveButton,
@@ -87,6 +88,14 @@ const Title = () => {
     </span>
   );
 };
+// the initial action has no previous step by design; any other action
+// without one can never be triggered
+const NoPrevs = () => {
+  const record = useRecordContext();
+  if (!record || record.firstAction) return null;
+  return <span style={{ color: "#d32f2f" }}>沒有前一步</span>;
+};
+
 const getRowIndex = (record) => {
   const key = `a-${record.id}`;
   return <div>{localStorage.getItem(key)}</div>;
@@ -111,11 +120,11 @@ const ScenarioActionList = () => {
           <FunctionField label="內容" render={getContentIcon} />
           <EditButton label="編輯" />
           <ArrayField label="上一步" source="prevs">
-            <Datagrid rowClick={false}>
-              <ReferenceField label="" source="prev" reference="actions">
+            <SingleFieldList linkType={false} empty={<NoPrevs />}>
+              <ReferenceField source="prev" reference="actions">
                 <ChipField source="name" />
               </ReferenceField>
-            </Datagrid>
+            </SingleFieldList>
           </ArrayField>
           <NextButton source="id" label="下一步" />
           <ActionDelete />
