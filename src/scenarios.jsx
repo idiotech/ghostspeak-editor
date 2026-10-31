@@ -34,6 +34,11 @@ import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
+import DialogActions from "@mui/material/DialogActions";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
 import { useQueryClient } from "@tanstack/react-query";
 import { FirebaseDataProvider } from "react-admin-firebase";
 import * as xid from "./xid";
@@ -58,8 +63,15 @@ import {
   clearCurrentScenario,
 } from "./currentScenario";
 
-import { buildGPX, BaseBuilder } from "gpx-builder";
-const { Point, Track, Segment } = BaseBuilder.MODELS;
+import {
+  getPaths,
+  describePath,
+  buildTimeline,
+  buildPoints,
+  toGpx,
+  formatDuration,
+  makeAudioLengthReader,
+} from "./gpxRoute";
 
 const scenarioFilters = [
   <TextInput label="Search" source="name" alwaysOn key="name" />,
@@ -488,6 +500,8 @@ function UnpublishButton(props) {
   );
 }
 
+// exports a timed walking route of the story for a mock-location app; a
+// branched story asks which branch to walk
 function GpxButton(props) {
   const record = useRecordContext(props);
   const disabled = !useIsCurrentScenario(record);
@@ -495,79 +509,107 @@ function GpxButton(props) {
   const [loading, setLoading] = useState(false);
   const data = useAllData();
   const { actions } = data;
-  const [open, setOpen] = useState(false);
-  open;
-  function handleConfirm() {
-    setOpen(false);
-    setLoading(true);
+  const [paths, setPaths] = useState(null);
+  const [selected, setSelected] = useState(0);
+
+  function handleClick() {
     const actionTree = getActionTree(Object.values(actions));
     if (!actionTree) {
-      setLoading(false);
-      setOpen(false);
-      notify("沒有初始動作，無法發佈！");
+      notify("沒有初始動作，無法產生路線檔！", { type: "error" });
       return;
     }
-
-    // the trigger conditions in tree order; the route only needs the
-    // geofence locations, so missing sounds or images must not stop it
-    function getConditions(tree) {
-      return tree.children.reduce(
-        (agg, c) => [...agg, ...getConditions(c)],
-        [getCondition(tree.node, data)]
-      );
+    const found = getPaths(actionTree);
+    if (found.length === 1) {
+      exportPath(found[0]);
+    } else {
+      setSelected(0);
+      setPaths(found);
     }
-    try {
-      const points = getConditions(actionTree)
-        .filter((c) => c.type === "GEOFENCE" && c.location)
-        .map((c) => c.location)
-        .map(
-          (l) =>
-            new Point(l.lat, l.lon, {
-              ele: 10,
-              time: new Date(),
-              hr: 121,
-            })
-        );
+  }
 
-      const gpxData = new BaseBuilder();
-      const segs = [];
-      for (var i = 1; i < points.length; i++) {
-        segs.push(new Segment([points[i - 1], points[i]]));
+  async function exportPath(path) {
+    setPaths(null);
+    setLoading(true);
+    try {
+      const { stops, warnings } = await buildTimeline(
+        path,
+        data,
+        makeAudioLengthReader()
+      );
+      if (stops.length === 0) {
+        notify("這條路線沒有GPS觸發的動作，無法產生路線檔", {
+          type: "warning",
+        });
+        return;
       }
-      const track = new Track(segs, {
-        name: "main",
-        cmt: "comment",
-        desc: "desc",
-      });
-      gpxData.setWayPoints(points);
-      gpxData.setTracks([track]);
-      const gpx = buildGPX(gpxData.toObject());
-      const cleanGpx = gpx
-        .split("\n")
-        .filter((l) => !l.includes("<time"))
-        .join("\n");
+      const points = buildPoints(stops);
+      const name = getRecordField(record, "name");
+      const gpx = toGpx(points, name);
+      const blob = new Blob([gpx], { type: "application/gpx+xml" });
       const link = document.createElement("a");
-      const blob = new Blob([cleanGpx], { type: "application/gpx+xml" });
-      const gpxUrl = window.URL.createObjectURL(blob);
-      link.href = gpxUrl;
-      link.download = getRecordField(record, "name") + ".gpx";
-      setLoading(false);
-      setOpen(false);
+      link.href = window.URL.createObjectURL(blob);
+      link.download = name + ".gpx";
       link.click();
+      const total = points[points.length - 1].time - points[0].time;
+      const summary = `路線檔已產生：${
+        stops.length
+      } 個GPS點，全程約 ${formatDuration(total)}`;
+      if (warnings.length > 0) {
+        notify(
+          <BrokenReferencesMessage
+            title={`${summary}；以下時間僅為估計：`}
+            problems={warnings}
+          />,
+          { type: "warning", autoHideDuration: null }
+        );
+      } else {
+        notify(summary, { type: "success" });
+      }
     } catch (e) {
       console.error("error exporting gpx", e);
       notify("路線檔產生失敗：" + describeError(e), { type: "error" });
+    } finally {
       setLoading(false);
-      setOpen(false);
     }
   }
+
   return (
     <>
       <Button
         label="路線檔"
-        onClick={handleConfirm}
+        onClick={handleClick}
         disabled={disabled || loading || !data.loaded}
       />
+      <Dialog open={paths !== null} onClose={() => setPaths(null)}>
+        <DialogTitle>選擇要走的路線</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            這個劇本有分支；路線檔只能走其中一條。
+          </DialogContentText>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="gpx-path-label">路線</InputLabel>
+            <Select
+              labelId="gpx-path-label"
+              label="路線"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+            >
+              {(paths || []).map((p, i) => (
+                <MenuItem key={i} value={i}>
+                  {describePath(p)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button label="取消" onClick={() => setPaths(null)} />
+          <Button
+            label="產生路線檔"
+            onClick={() => exportPath(paths[selected])}
+          />
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
