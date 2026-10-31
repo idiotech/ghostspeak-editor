@@ -64,12 +64,15 @@ import {
   guideImageRemovalInput,
   silenceInput,
   getPrevDesc,
+  getButtons,
+  nextStepState,
   longInputSx,
 } from "./actionCommon";
 
 import { getRecordField } from "./utils";
 import { getDeleteButton } from "./deleteResource";
 import { describeError } from "./errors";
+import { FlowStrip, BranchCreator } from "./flow";
 import { useAllData } from "./serverCommon";
 import {
   ProblemsContext,
@@ -241,9 +244,7 @@ const ActionSaveButton = ({ label }) => {
             type: "info",
             messageArgs: { smart_count: 1 },
           });
-          redirect("create", "actions", undefined, undefined, {
-            record: { prevs: [{ prev: data.id, conditionType: "ALWAYS" }] },
-          });
+          redirect("create", "actions", undefined, undefined, nextStepState(data.id));
         },
       }}
     />
@@ -271,12 +272,7 @@ const UserReplyInput = ({ prev }) => {
     { id: prev },
     { enabled: !!prev }
   );
-  // the same rule the export uses to decide whether the buttons are shown
-  const showsButtons =
-    prevAction && prevAction.hasPopup && !prevAction.allowNoReply;
-  const buttons = ((showsButtons && prevAction.choices) || [])
-    .map((c) => c && c.choice)
-    .filter((c) => c);
+  const buttons = getButtons(prevAction);
   if (buttons.length === 0) {
     return (
       <TextInput
@@ -360,6 +356,7 @@ const InputForm = (props) => {
                 sx={longInputSx}
               />{" "}
               <br />
+              <FlowStrip />
               <h3>觸發順序</h3>
               <hr />
               <BooleanInput label="開頭" source="firstAction" /> <br />
@@ -489,6 +486,7 @@ const InputForm = (props) => {
               <hr />
               <BooleanInput label="圖文訊息" source="hasPopup" />
               {formData.hasPopup && popupInput(formData, enableDelay)}
+              {formData.hasPopup && <BranchCreator />}
               <hr />
               <BooleanInput label="關閉圖文框" source="hasPopupDismissal" />
               {formData.hasPopupDismissal &&
@@ -581,7 +579,7 @@ export const ActionCreate = () => {
 // reads the old record from Firestore.
 export const ActionEdit = () => {
   return (
-    <Edit title={<Title />} mutationMode="pessimistic">
+    <Edit title={<Title />} mutationMode="pessimistic" redirect={false}>
       <InputForm showid="true" />
     </Edit>
   );
@@ -593,16 +591,7 @@ function NextButton(props) {
     <CreateButton
       label="下一步"
       to="/actions/create"
-      state={{
-        record: {
-          prevs: [
-            {
-              prev: getRecordField(record, "id"),
-              conditionType: "ALWAYS",
-            },
-          ],
-        },
-      }}
+      state={nextStepState(getRecordField(record, "id"))}
     />
   );
 }
