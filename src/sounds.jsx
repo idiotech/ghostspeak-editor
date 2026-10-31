@@ -18,11 +18,13 @@ import {
 import SimpleForm from "./SimpleForm";
 import { longInputSx } from "./inputWidth";
 import { getDeleteButton } from "./deleteResource";
+import { useAllData } from "./serverCommon";
+import { useUsage, UsedByField } from "./usage";
 
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 const soundFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {
@@ -35,33 +37,48 @@ const Title = () => {
   );
 };
 
-const SoundDelete = (props) => {
-  const paths = ["soundId"];
-  return getDeleteButton(props, "sounds", "聲音", {
-    actions: paths,
-    broadcasts: paths,
-  });
+// where a sound may be used
+const soundReferences = { actions: ["soundId"], broadcasts: ["soundId"] };
+
+const SoundDelete = (props) =>
+  getDeleteButton(props, "sounds", "聲音", soundReferences);
+
+// plays the file in place; nothing is downloaded until play is pressed
+const PlayField = () => {
+  const record = useRecordContext();
+  const src = record?.sound?.src;
+  if (!src) return null;
+  return (
+    <audio controls preload="none" src={src} style={{ height: 32, width: 260 }} />
+  );
 };
 
 export const SoundList = () => {
-  if (getCurrentScenario()) {
-    return (
-      <List
-        title={<Title />}
-        perPage={100}
-        sort={{ field: "name", order: "ASC" }}
-        filters={soundFilters}
-      >
-        <Datagrid rowClick={false} bulkActionButtons={false}>
-          <TextField label="編號" source="rowIndex" />
-          <TextField label="名稱" source="name" />
-          <FileField label="音檔" source="sound.src" title={"連結"} />
-          <EditButton label="" />
-          <SoundDelete label="" redirect={false} />
-        </Datagrid>
-      </List>
-    );
-  } else return <DummyList />;
+  if (getCurrentScenario()) return <ScenarioSoundList />;
+  else return <DummyList />;
+};
+
+const ScenarioSoundList = () => {
+  const data = useAllData();
+  const usage = useUsage(data, soundReferences);
+  return (
+    <List
+      title={<Title />}
+      perPage={100}
+      sort={{ field: "name", order: "ASC" }}
+      filters={soundFilters}
+    >
+      <Datagrid rowClick={false} bulkActionButtons={false}>
+        <TextField label="編號" source="rowIndex" />
+        <TextField label="名稱" source="name" />
+        <PlayField label="試聽" />
+        <FileField label="音檔" source="sound.src" title={"連結"} />
+        <UsedByField label="使用於" usage={usage} />
+        <EditButton label="" />
+        <SoundDelete label="" redirect={false} />
+      </Datagrid>
+    </List>
+  );
 };
 
 export const SoundCreate = () => (

@@ -20,7 +20,7 @@ import { getDeleteButton } from "./deleteResource";
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 const mapStyleFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {

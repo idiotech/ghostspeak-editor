@@ -23,7 +23,7 @@ import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 import { getDeleteButton } from "./deleteResource";
 
 const variableFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {

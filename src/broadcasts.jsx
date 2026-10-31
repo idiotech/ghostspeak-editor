@@ -78,7 +78,7 @@ const Title = () => {
 };
 
 const broadcastFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 export const BroadcastList = () => {
