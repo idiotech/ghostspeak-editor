@@ -78,6 +78,14 @@ const beaconTypes = [
   { id: "ENTER", name: "接近" },
   { id: "EXIT", name: "離開" },
 ];
+// ARRIVE: the player has to reach the center, the radius only arms the fence;
+// SIGHT: it fires as soon as the player is inside the radius, e.g. on seeing the target
+const geofenceModes = [
+  { id: "ARRIVE", name: "到達中心點" },
+  { id: "SIGHT", name: "進入範圍即觸發（遠望目標）" },
+];
+// a radius players enter reliably with 10 to 20 m of GPS error
+const DEFAULT_GEOFENCE_RADIUS = 30;
 const callTypes = [
   { id: "CONNECTING", name: "未接通" },
   { id: "CONNECTED", name: "接通" },
@@ -170,7 +178,15 @@ const locationCondition = () => (
       source="geofenceRadius"
       validate={[required(), number(), validateInteger]}
       step={1}
+      defaultValue={DEFAULT_GEOFENCE_RADIUS}
       slotProps={unit("公尺")}
+    />
+    <br />
+    <SelectInput
+      label="觸發方式"
+      source="geofenceMode"
+      choices={geofenceModes}
+      defaultValue="ARRIVE"
     />
   </>
 );
@@ -1206,6 +1222,7 @@ export {
   getContentIcon,
   locationCondition,
   beaconCondition,
+  DEFAULT_GEOFENCE_RADIUS,
   soundInput,
   popupInput,
   popupDismissalInput,

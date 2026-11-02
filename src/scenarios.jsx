@@ -45,7 +45,7 @@ import { RichTextInput } from "ra-input-rich-text";
 import { getRecordField, withoutDisplayFields } from "./utils";
 
 import { useAllData, getActions, apiUrl } from "./serverCommon";
-import { getPrevId } from "./actionCommon";
+import { getPrevId, DEFAULT_GEOFENCE_RADIUS } from "./actionCommon";
 import {
   describeBrokenReferences,
   BrokenReferencesMessage,
@@ -169,9 +169,12 @@ function getCondition(currentNode, data) {
       type: active.conditionType,
       beaconId: active.beacon ? beacons[active.beacon].beaconId : null,
       threshold: active.beaconThreshold,
-      mode: active.beaconType,
+      mode:
+        active.conditionType === "GEOFENCE"
+          ? active.geofenceMode || "ARRIVE"
+          : active.beaconType,
       location: active.geofenceCenter ? locations[active.geofenceCenter] : null,
-      radius: active.geofenceRadius || 14,
+      radius: active.geofenceRadius || DEFAULT_GEOFENCE_RADIUS,
     };
   } else {
     return { type: "ALWAYS" };
@@ -844,7 +847,8 @@ function CloneButton(props) {
             }
             if (cond === "GEOFENCE") {
               rec.geofenceCenter = newA.geofenceCenter;
-              rec.geofenceRadius = newA.geofenceRadius || 14;
+              rec.geofenceRadius = newA.geofenceRadius || DEFAULT_GEOFENCE_RADIUS;
+              rec.geofenceMode = newA.geofenceMode || "ARRIVE";
             }
             const reply = newA[`triggers_${oldId}_userReply`];
             if (reply) {
