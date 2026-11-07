@@ -345,6 +345,7 @@ function PublishButton(props) {
         displayName: displayName,
         description: getRecordField(record, "description"),
         featured: getRecordField(record, "featured"),
+        alwaysShowTriggers: !!getRecordField(record, "alwaysShowTriggers"),
         public: getRecordField(record, "public"),
         ordinal: getRecordField(record, "ordinal") || Date.now(),
         categories: categories,
@@ -1006,6 +1007,11 @@ const InputForm = (props) => {
                   perPage={1000}
                 />
                 <RichTextInput label="詳細說明" source="details" />
+                <BooleanInput
+                  label="一律顯示觸發箭頭"
+                  source="alwaysShowTriggers"
+                  helperText="開啟時，App 隨時顯示每個待觸發地點的箭頭，玩家可以直接跳到下一段；關閉時，只在玩家到了卻沒有反應的時候才出現「我已經到了」。"
+                />
                 <BooleanInput
                   label="精選"
                   source="featured"
