@@ -29,10 +29,56 @@ export function describeError(e) {
   return message;
 }
 
-// the Ghostspeak server's reply to publish, unpublish and send
-export function describeResponse(response) {
+// Reads the body of a failed fetch Response. response.body is a stream, not
+// text, so it has to be read (once) to be useful. Returns the raw text and,
+// when the server sent JSON with a message field, that message.
+async function readResponseBody(response) {
+  let raw = "";
+  try {
+    raw = (await response.text()).trim();
+  } catch (e) {
+    return { raw: "", message: `無法讀取伺服器回覆：${e.message || e}` };
+  }
+  if (!raw) return { raw, message: "" };
+  try {
+    const json = JSON.parse(raw);
+    if (json && typeof json === "object") {
+      const message =
+        json.message || json.error || json.detail || json.errors || json.reason;
+      if (message)
+        return {
+          raw,
+          message: typeof message === "string" ? message : JSON.stringify(message),
+        };
+    }
+  } catch (e) {
+    // not JSON; fall through and use the text itself
+  }
+  // an HTML error page (from a proxy, say) is noise on screen; keep it for the log
+  if (/^<(!doctype|html)/i.test(raw)) return { raw, message: "" };
+  return { raw, message: raw };
+}
+
+const maxMessageLength = 300;
+
+// the Ghostspeak server's reply to publish, unpublish and send. Reads the body
+// and logs the whole exchange (what was asked, what came back) to the console
+// so a failure can be pinned down, then returns a sentence for the screen.
+export async function describeResponse(response, context = {}) {
   const status = response?.status;
-  const body = response?.body ? `（${response.body}）` : "";
+  const { raw, message } = await readResponseBody(response);
+  console.error("伺服器回覆錯誤 (server request failed)", {
+    ...context,
+    url: response?.url,
+    status,
+    statusText: response?.statusText,
+    body: raw,
+  });
+  const shortMessage =
+    message.length > maxMessageLength
+      ? message.slice(0, maxMessageLength) + "…"
+      : message;
+  const body = shortMessage ? `（${shortMessage}）` : "";
   if (status === 401 || status === 403) return "伺服器拒絕了這個操作，請確認你有權限" + body;
   if (status === 404) return "伺服器上找不到這個劇本" + body;
   if (status === 409) return "伺服器上的資料有衝突，請重新整理後再試" + body;

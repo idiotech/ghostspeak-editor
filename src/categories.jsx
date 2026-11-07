@@ -79,13 +79,16 @@ function CatPublishButton() {
           "content-type": "application/json",
         },
       })
-        .then((response) => {
+        .then(async (response) => {
           if (response.ok) {
             notify("成功發佈分類", { type: "success" });
           } else {
-            notify("發佈失敗：" + describeResponse(response), {
-              type: "error",
+            const reason = await describeResponse(response, {
+              request: "publish categories",
+              method: "PUT",
+              metadata,
             });
+            notify("發佈失敗：" + reason, { type: "error" });
           }
         })
         .catch((e) => {
