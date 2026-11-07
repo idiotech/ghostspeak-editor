@@ -315,7 +315,17 @@ function SendButton(props) {
           type: "success",
         });
       } else {
-        notify("傳送失敗：" + [...new Set(failed.map(describeResponse))].join("；"), {
+        const reasons = await Promise.all(
+          failed.map((response) =>
+            describeResponse(response, {
+              request: "broadcast",
+              method: "POST",
+              scenarioId: scenario,
+              message: messages[responses.indexOf(response)],
+            })
+          )
+        );
+        notify("傳送失敗：" + [...new Set(reasons)].join("；"), {
           type: "error",
         });
       }

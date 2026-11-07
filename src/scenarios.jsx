@@ -365,14 +365,23 @@ function PublishButton(props) {
           "content-type": "application/json",
         },
       })
-        .then((response) => {
+        .then(async (response) => {
           if (response.ok) {
             notify("成功發佈" + getRecordField(record, "name"), {
               type: "success",
             });
           } else {
-            notify("發佈失敗：" + describeResponse(response), {
+            const reason = await describeResponse(response, {
+              request: "publish",
+              method: "PUT",
+              scenarioId,
+              metadata,
+              template,
+              actions,
+            });
+            notify("發佈失敗：" + reason, {
               type: "error",
+              autoHideDuration: null,
             });
           }
         })
@@ -449,16 +458,18 @@ function UnpublishButton(props) {
     setOpen(false);
     setLoading(true);
     unpublish(getRecordField(record, "id"))
-      .then((response) => {
+      .then(async (response) => {
         if (response.ok) {
           notify("成功解除發佈" + getRecordField(record, "name"), {
             type: "success",
           });
         } else {
-          notify(
-            "解除發佈失敗：" + describeResponse(response),
-            { type: "error" }
-          );
+          const reason = await describeResponse(response, {
+            request: "unpublish",
+            method: "DELETE",
+            scenarioId: getRecordField(record, "id"),
+          });
+          notify("解除發佈失敗：" + reason, { type: "error" });
         }
       })
       .catch((e) => {
@@ -646,10 +657,12 @@ function DeleteButton(props) {
           type: "success",
         });
       } else {
-        notify(
-          `刪除失敗：無法解除發佈，${describeResponse(response)}`,
-          { type: "error" }
-        );
+        const reason = await describeResponse(response, {
+          request: "unpublish before delete",
+          method: "DELETE",
+          scenarioId: scnId,
+        });
+        notify(`刪除失敗：無法解除發佈，${reason}`, { type: "error" });
       }
     } catch (e) {
       console.error("failed to delete scenario", e);
