@@ -45,7 +45,11 @@ import { RichTextInput } from "ra-input-rich-text";
 import { getRecordField, withoutDisplayFields } from "./utils";
 
 import { useAllData, getActions, apiUrl } from "./serverCommon";
-import { getPrevId, DEFAULT_GEOFENCE_RADIUS } from "./actionCommon";
+import {
+  getPrevId,
+  buildCondition,
+  LEGACY_GEOFENCE_RADIUS,
+} from "./actionCommon";
 import {
   describeBrokenReferences,
   BrokenReferencesMessage,
@@ -159,26 +163,13 @@ function getTriggerList(currentNode, parentNode) {
 // TODO: system hole
 // only one condition holds
 function getCondition(currentNode, data) {
-  const { locations, beacons } = data;
+  // the initial action has no trigger; a previous step's TEXT reply is a
+  // trigger message, not a condition
   const active =
     !currentNode.firstAction &&
     currentNode.prevs &&
-    currentNode.prevs.find((p) => p.conditionType != "TEXT" && p.conditionType);
-  if (active) {
-    return {
-      type: active.conditionType,
-      beaconId: active.beacon ? beacons[active.beacon].beaconId : null,
-      threshold: active.beaconThreshold,
-      mode:
-        active.conditionType === "GEOFENCE"
-          ? active.geofenceMode || "ARRIVE"
-          : active.beaconType,
-      location: active.geofenceCenter ? locations[active.geofenceCenter] : null,
-      radius: active.geofenceRadius || DEFAULT_GEOFENCE_RADIUS,
-    };
-  } else {
-    return { type: "ALWAYS" };
-  }
+    currentNode.prevs.find((p) => p && p.conditionType != "TEXT" && p.conditionType);
+  return buildCondition(active || {}, data);
 }
 
 function PublishButton(props) {
@@ -861,8 +852,9 @@ function CloneButton(props) {
             }
             if (cond === "GEOFENCE") {
               rec.geofenceCenter = newA.geofenceCenter;
-              rec.geofenceRadius = newA.geofenceRadius || DEFAULT_GEOFENCE_RADIUS;
-              rec.geofenceMode = newA.geofenceMode || "ARRIVE";
+              // old-format records predate geofenceMode; the export
+              // defaults it to ARRIVE
+              rec.geofenceRadius = newA.geofenceRadius || LEGACY_GEOFENCE_RADIUS;
             }
             const reply = newA[`triggers_${oldId}_userReply`];
             if (reply) {

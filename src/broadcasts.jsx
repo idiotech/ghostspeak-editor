@@ -54,7 +54,7 @@ import {
   validateBeforeSubmit,
   silenceInput,
   longInputSx,
-  DEFAULT_GEOFENCE_RADIUS,
+  buildCondition,
 } from "./actionCommon";
 
 import { useAllData, getActions } from "./serverCommon";
@@ -213,26 +213,7 @@ export const BroadcastEdit = () => {
 };
 
 function getCondition(currentNode, data) {
-  const { locations, beacons } = data;
-  if (currentNode.conditionType == "ALWAYS") {
-    return { type: "ALWAYS" };
-  } else {
-    return {
-      type: currentNode.conditionType,
-      beaconId: currentNode.beacon
-        ? beacons[currentNode.beacon].beaconId
-        : null,
-      threshold: currentNode.beaconThreshold,
-      mode:
-        currentNode.conditionType === "GEOFENCE"
-          ? currentNode.geofenceMode || "ARRIVE"
-          : currentNode.beaconType,
-      location: currentNode.geofenceCenter
-        ? locations[currentNode.geofenceCenter]
-        : null,
-      radius: currentNode.geofenceRadius || DEFAULT_GEOFENCE_RADIUS,
-    };
-  }
+  return buildCondition(currentNode, data);
 }
 
 const getConditionIcon = (record) => {
