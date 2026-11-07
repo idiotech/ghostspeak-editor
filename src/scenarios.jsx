@@ -375,10 +375,14 @@ function PublishButton(props) {
               request: "publish",
               method: "PUT",
               scenarioId,
-              nodes: template.length,
               metadata,
+              template,
+              actions,
             });
-            notify("發佈失敗：" + reason, { type: "error" });
+            notify("發佈失敗：" + reason, {
+              type: "error",
+              autoHideDuration: null,
+            });
           }
         })
         .catch((e) => {

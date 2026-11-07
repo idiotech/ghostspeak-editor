@@ -59,29 +59,120 @@ async function readResponseBody(response) {
   return { raw, message: raw };
 }
 
-const maxMessageLength = 300;
+const maxMessageLength = 400;
+
+// Splits a circe cursor path like ".[3].performances[0].action.content.task.text"
+// (or "[3].performances[0]...") into ["3", "performances", "0", ...].
+function splitPath(path) {
+  const parts = [];
+  const re = /\[(\d+)\]|\.?([^.[\]]+)/g;
+  let m;
+  while ((m = re.exec(path)) !== null) parts.push(m[1] !== undefined ? m[1] : m[2]);
+  return parts;
+}
+
+// circe's reasons, in the author's words. Anything else is shown as is.
+function translateReason(reason, field) {
+  const fieldText = field ? `欄位「${field}」` : "有個欄位";
+  if (/Missing required field/i.test(reason)) return `缺少必要${fieldText}`;
+  const wrongType = reason.match(/wrong type, expecting (.+)$/i);
+  if (wrongType) {
+    const got = reason.match(/Got value '([^']*)'/);
+    return `${fieldText}的值不對：需要 ${wrongType[1]}${got ? `，但給的是 ${got[1]}` : ""}`;
+  }
+  if (/not found in|not a valid|unknown|unexpected/i.test(reason))
+    return `${fieldText}的值伺服器不認得：${reason}`;
+  return `${fieldText}：${reason}`;
+}
+
+// Names the place in the published template that a circe path points at:
+// which editor action (node), which of its effects (performance), which field.
+function locateInTemplate(parts, template, actions) {
+  if (!Array.isArray(template) || parts.length === 0) return null;
+  const nodeIndex = Number(parts[0]);
+  const node = template[nodeIndex];
+  if (!node) return null;
+  const actionName =
+    node.name === "initial" ? "初始動作" : actions?.[node.name]?.name || node.name;
+  let where = `動作「${actionName}」`;
+  if (parts[1] === "performances" && parts[2] !== undefined) {
+    const performance = node.performances?.[Number(parts[2])];
+    const task = performance?.action?.content?.task;
+    const kind = task?.type ? `（${task.type}）` : "";
+    where += `的第 ${Number(parts[2]) + 1} 個效果${kind}`;
+  } else if (parts[1] === "triggers" && parts[2] !== undefined) {
+    where += `的第 ${Number(parts[2]) + 1} 個觸發條件`;
+  } else if (parts[1] === "preconditions" && parts[2] !== undefined) {
+    where += `的第 ${Number(parts[2]) + 1} 個前提條件`;
+  } else if (parts[1]) {
+    where += `的「${parts[1]}」`;
+  }
+  return where;
+}
+
+// Turns the server's "invalid template: DecodingFailure at <path>: <reason>"
+// into a sentence naming the action, the effect and the field at fault.
+export function describeTemplateFailure(message, template, actions) {
+  const circe = message.match(/DecodingFailure at (\S+): (.*)$/s);
+  if (!circe) {
+    const parse = message.match(/ParsingFailure: (.*)$/s);
+    return parse
+      ? `伺服器讀不懂送出的劇本資料（${parse[1]}）`
+      : `伺服器無法接受這個劇本：${message}`;
+  }
+  const [, path, reason] = circe;
+  const parts = splitPath(path);
+  const last = parts[parts.length - 1];
+  const field = last !== undefined && isNaN(Number(last)) ? last : "";
+  const where = locateInTemplate(parts, template, actions);
+  const problem = translateReason(reason.trim(), field);
+  return where
+    ? `${where}${problem}。請修正這個動作後再發佈`
+    : `劇本資料的 ${path} ${problem}`;
+}
+
+// What the Ghostspeak server is telling us, in plain language. The server
+// answers a bad publish with a 500 whose text explains the problem, so the
+// text matters more than the status.
+function describeServerMessage(status, message, context) {
+  const invalid = message.match(/invalid (?:scenario|template)[:：]\s*(.*)$/s);
+  if (invalid) {
+    const inner = invalid[1].replace(/^invalid template:\s*/, "");
+    return describeTemplateFailure(inner, context.template, context.actions);
+  }
+  if (/no such scenario/i.test(message))
+    return "伺服器上找不到這個劇本，可能尚未發佈或已被解除發佈";
+  const shortMessage =
+    message.length > maxMessageLength
+      ? message.slice(0, maxMessageLength) + "…"
+      : message;
+  const detail = shortMessage ? `（${shortMessage}）` : "";
+  if (status === 401 || status === 403) return "伺服器拒絕了這個操作，請確認你有權限" + detail;
+  if (status === 404) return "伺服器上找不到這個劇本" + detail;
+  if (status === 409) return "伺服器上的資料有衝突，請重新整理後再試" + detail;
+  if (status >= 500)
+    return shortMessage
+      ? `伺服器發生錯誤（${status}）：${shortMessage}`
+      : `伺服器發生錯誤（${status}），沒有說明原因；詳細紀錄在瀏覽器主控台（Console）`;
+  return `伺服器回覆 ${status}` + detail;
+}
 
 // the Ghostspeak server's reply to publish, unpublish and send. Reads the body
 // and logs the whole exchange (what was asked, what came back) to the console
 // so a failure can be pinned down, then returns a sentence for the screen.
+// context may carry the published template and the editor's actions map so a
+// template error can name the action at fault.
 export async function describeResponse(response, context = {}) {
   const status = response?.status;
   const { raw, message } = await readResponseBody(response);
+  const { template, actions, ...logged } = context;
   console.error("伺服器回覆錯誤 (server request failed)", {
-    ...context,
+    ...logged,
+    ...(template ? { nodes: template.length } : {}),
     url: response?.url,
     status,
     statusText: response?.statusText,
     body: raw,
   });
-  const shortMessage =
-    message.length > maxMessageLength
-      ? message.slice(0, maxMessageLength) + "…"
-      : message;
-  const body = shortMessage ? `（${shortMessage}）` : "";
-  if (status === 401 || status === 403) return "伺服器拒絕了這個操作，請確認你有權限" + body;
-  if (status === 404) return "伺服器上找不到這個劇本" + body;
-  if (status === 409) return "伺服器上的資料有衝突，請重新整理後再試" + body;
-  if (status >= 500) return `伺服器發生錯誤（${status}），請稍後再試` + body;
-  return `伺服器回覆 ${status}` + body;
+  return describeServerMessage(status, message, context);
 }
