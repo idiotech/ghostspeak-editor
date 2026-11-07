@@ -7,7 +7,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -21,6 +20,7 @@ import {
   FunctionField,
   AutocompleteArrayInput,
   ArrayField,
+  SingleFieldList,
   ReferenceField,
   Toolbar,
   SaveButton,
@@ -35,6 +35,7 @@ import {
   AutocompleteInput,
   useGetOne,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import FlagIcon from "@mui/icons-material/Flag";
 
 import {
@@ -63,18 +64,28 @@ import {
   guideImageRemovalInput,
   silenceInput,
   getPrevDesc,
+  getButtons,
+  nextStepState,
   longInputSx,
 } from "./actionCommon";
 
 import { getRecordField } from "./utils";
 import { getDeleteButton } from "./deleteResource";
+import { describeError } from "./errors";
+import { FlowStrip, BranchCreator } from "./flow";
 import { useAllData } from "./serverCommon";
-import { AllDataContext, BrokenReferencesField } from "./brokenReferences";
+import {
+  ProblemsContext,
+  useBrokenReferences,
+  NameWithWarning,
+  ProblemsSummary,
+  OnlyProblems,
+} from "./brokenReferences";
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 
 const actionFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {
@@ -86,9 +97,17 @@ const Title = () => {
     </span>
   );
 };
+// the initial action has no previous step by design; any other action
+// without one can never be triggered
+const NoPrevs = () => {
+  const record = useRecordContext();
+  if (!record || record.firstAction) return null;
+  return <span style={{ color: "#d32f2f" }}>沒有前一步</span>;
+};
+
 const getRowIndex = (record) => {
   const key = `a-${record.id}`;
-  return <div>{localStorage.getItem(key)}</div>;
+  return <div>{record.rowIndex ?? localStorage.getItem(key)}</div>;
 };
 
 export const ActionList = () => {
@@ -98,36 +117,53 @@ export const ActionList = () => {
 
 const ScenarioActionList = () => {
   const data = useAllData();
+  const problems = useBrokenReferences(data.actions, data);
+  const [onlyProblems, setOnlyProblems] = React.useState(false);
   return (
-    <AllDataContext.Provider value={data}>
+    <ProblemsContext.Provider value={problems}>
       <List title={<Title />} perPage={100} filters={actionFilters}>
-        <Datagrid rowClick={false}>
-          <FunctionField label="編號" render={getRowIndex} />
-          <BrokenReferencesField label="檢查" />
-          <FirstActionButton label="開頭" />
-          <TextField label="名稱" source="name" />
+        <ProblemsSummary
+          problems={problems}
+          records={data.actions}
+          label="動作"
+          hint="發佈前請修正"
+          onlyProblems={onlyProblems}
+          onToggle={setOnlyProblems}
+        />
+        <OnlyProblems
+          enabled={onlyProblems}
+          problems={problems}
+          records={data.actions}
+        >
+          {/* no bulk delete: only ActionDelete checks that nothing still refers to the action */}
+          <Datagrid rowClick={false} bulkActionButtons={false}>
+            <FunctionField label="編號" render={getRowIndex} />
+            <FirstActionButton label="開頭" />
+            <NameWithWarning label="名稱" source="name" />
           <FunctionField label="條件" render={getConditionIcon} />
           <FunctionField label="內容" render={getContentIcon} />
           <EditButton label="編輯" />
           <ArrayField label="上一步" source="prevs">
-            <Datagrid rowClick={false}>
-              <ReferenceField label="" source="prev" reference="actions">
+            <SingleFieldList linkType={false} empty={<NoPrevs />}>
+              <ReferenceField source="prev" reference="actions">
                 <ChipField source="name" />
               </ReferenceField>
-            </Datagrid>
+            </SingleFieldList>
           </ArrayField>
-          <NextButton source="id" label="下一步" />
-          <ActionDelete />
-        </Datagrid>
+            <NextButton source="id" label="下一步" />
+            <ActionDelete />
+          </Datagrid>
+        </OnlyProblems>
       </List>
-    </AllDataContext.Provider>
+    </ProblemsContext.Provider>
   );
 };
 
-// refuses while another action follows this one or excludes it
+// refuses while another action follows this one, excludes it or stops its sound
 const ActionDelete = (props) =>
   getDeleteButton(props, "actions", "動作", {
-    actions: ["prevs.prev", "exclusiveWith"],
+    actions: ["prevs.prev", "exclusiveWith", "silencedSound"],
+    broadcasts: ["silencedSound"],
   });
 
 // flags the initial action; on any other row, makes that action the initial one
@@ -160,15 +196,18 @@ const FirstActionButton = () => {
           })
         )
       );
+      // the initial action has no previous step; a leftover one would keep
+      // its old trigger condition and list it under its old parent
       await dataProvider.update("actions", {
         id: record.id,
-        data: { firstAction: true },
+        data: { firstAction: true, prevs: [] },
         previousData: record,
       });
       notify(`已將《${record.name}》設為開頭`, { type: "info" });
       refresh();
     } catch (e) {
-      notify(`設定開頭失敗：${e.message}`, { type: "error" });
+      console.error("failed to set the first action", e);
+      notify(`設定開頭失敗：${describeError(e)}`, { type: "error" });
     } finally {
       setSaving(false);
       setOpen(false);
@@ -182,7 +221,7 @@ const FirstActionButton = () => {
         isOpen={open}
         loading={saving}
         title={`將《${record.name}》設為開頭`}
-        content="原本的開頭動作將不再是開頭，需要時請替它設定前一步。確定嗎？"
+        content="原本的開頭動作將不再是開頭，需要時請替它設定前一步；這個動作原有的前一步會被清除。確定嗎？"
         onConfirm={handleConfirm}
         onClose={() => setOpen(false)}
       />
@@ -205,9 +244,7 @@ const ActionSaveButton = ({ label }) => {
             type: "info",
             messageArgs: { smart_count: 1 },
           });
-          redirect("create", "actions", undefined, undefined, {
-            record: { prevs: [{ prev: data.id, conditionType: "ALWAYS" }] },
-          });
+          redirect("create", "actions", undefined, undefined, nextStepState(data.id));
         },
       }}
     />
@@ -235,9 +272,7 @@ const UserReplyInput = ({ prev }) => {
     { id: prev },
     { enabled: !!prev }
   );
-  const buttons = ((prevAction && prevAction.choices) || [])
-    .map((c) => c && c.choice)
-    .filter((c) => c);
+  const buttons = getButtons(prevAction);
   if (buttons.length === 0) {
     return (
       <TextInput
@@ -321,6 +356,7 @@ const InputForm = (props) => {
                 sx={longInputSx}
               />{" "}
               <br />
+              <FlowStrip />
               <h3>觸發順序</h3>
               <hr />
               <BooleanInput label="開頭" source="firstAction" /> <br />
@@ -450,6 +486,7 @@ const InputForm = (props) => {
               <hr />
               <BooleanInput label="圖文訊息" source="hasPopup" />
               {formData.hasPopup && popupInput(formData, enableDelay)}
+              {formData.hasPopup && <BranchCreator />}
               <hr />
               <BooleanInput label="關閉圖文框" source="hasPopupDismissal" />
               {formData.hasPopupDismissal &&
@@ -542,7 +579,7 @@ export const ActionCreate = () => {
 // reads the old record from Firestore.
 export const ActionEdit = () => {
   return (
-    <Edit title={<Title />} mutationMode="pessimistic">
+    <Edit title={<Title />} mutationMode="pessimistic" redirect={false}>
       <InputForm showid="true" />
     </Edit>
   );
@@ -554,16 +591,7 @@ function NextButton(props) {
     <CreateButton
       label="下一步"
       to="/actions/create"
-      state={{
-        record: {
-          prevs: [
-            {
-              prev: getRecordField(record, "id"),
-              conditionType: "ALWAYS",
-            },
-          ],
-        },
-      }}
+      state={nextStepState(getRecordField(record, "id"))}
     />
   );
 }

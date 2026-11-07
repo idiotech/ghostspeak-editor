@@ -7,13 +7,13 @@ import {
   Create,
   Edit,
   SimpleShowLayout,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
   DateTimeInput,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import { longInputSx } from "./inputWidth";
 
 import { getDeleteButton } from "./deleteResource";
@@ -22,7 +22,7 @@ import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 
 const locationFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {
@@ -57,7 +57,7 @@ export const LocationList = () => {
         perPage={100}
         filters={locationFilters}
       >
-        <Datagrid rowClick={false}>
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="名稱" source="name" />
           <CoordinateField label="座標" source="coordinates" />

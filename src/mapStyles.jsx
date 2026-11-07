@@ -4,7 +4,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -14,13 +13,14 @@ import {
   required,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import { longInputSx } from "./inputWidth";
 import { getDeleteButton } from "./deleteResource";
 
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 const mapStyleFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {
@@ -50,7 +50,7 @@ export const MapStyleList = () => {
         sort={{ field: "name", order: "ASC" }}
         filters={mapStyleFilters}
       >
-        <Datagrid rowClick={false}>
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="名稱" source="name" />
           <FileField label="地圖樣式" source="mapStyle.src" title={"連結"} />

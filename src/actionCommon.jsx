@@ -44,6 +44,8 @@ import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 import LocationReferenceInput from "./LocationReferenceInput";
 import SoundReferenceInput from "./SoundReferenceInput";
 import ImageReferenceInput from "./ImageReferenceInput";
+import { AlertPreview, DialogPreview, IntroPreview } from "./popupPreview";
+import { getCurrentScenarioName } from "./currentScenario";
 
 const destinations = [
   { id: "NOTIFICATION", name: "通知列" },
@@ -264,6 +266,18 @@ export function getMainType(action) {
     : action.hasSound
     ? "sound"
     : "button-style";
+}
+
+// the reply buttons the app shows for a popup: none when the popup is off
+// or needs no reply; empty entries are skipped
+export function getButtons(action) {
+  if (!action || !action.hasPopup || action.allowNoReply) return [];
+  return (action.choices || []).map((c) => c && c.choice).filter((c) => c);
+}
+
+// the create page's prefill for an action that follows `id`
+export function nextStepState(id) {
+  return { record: { prevs: [{ prev: id, conditionType: "ALWAYS" }] } };
 }
 
 export function getPrevDesc(action) {
@@ -704,6 +718,13 @@ const PopupInput = ({ formData, enableDelay }) => {
                       <TextInput source="choice" label="選擇" />
                     </SimpleFormIterator>
                   </ArrayInput>
+                  {(formData.choices || []).some(
+                    (c) => c && c.choice && c.choice.length > 8
+                  ) && (
+                    <div style={{ color: "#ed6c02" }}>
+                      按鈕文字超過 8 個字，手機上可能換行或被截斷。
+                    </div>
+                  )}
                 </td>
               </tr>
             )}
@@ -785,407 +806,64 @@ const PopupInput = ({ formData, enableDelay }) => {
   );
   const firstImageSrc = firstPictureId && firstImage?.image?.src;
 
+  // the sender's name and avatar head the message in the dialog
+  const { data: sender } = useGetOne(
+    "people",
+    { id: formData.sender },
+    { enabled: !!formData.sender }
+  );
+  const { data: senderImage } = useGetOne(
+    "images",
+    { id: sender?.userPortrait },
+    { enabled: !!sender?.userPortrait }
+  );
+  const previewProps = {
+    text: formData.text,
+    choices: getButtons(formData),
+    allowTextReply: !!formData.allowTextReply && !formData.allowNoReply,
+    imageSrc: firstImageSrc,
+  };
+
   const previewPane = (
     <>
       <h4>
         <u>示意圖</u>
       </h4>
-      僅供編輯時參考，非實際手機上佈局。
-      <table>
-        {hasAlert && (
-          <tr>
-            <td style={{ background: "#555555" }}>
-              <div
-                style={{
-                  width: 320,
-                  paddingLeft: 24,
-                  paddingRight: 24,
-                  paddingTop: 32,
-                  paddingBottom: 32,
-                  margin: 24,
-                  background:
-                    "linear-gradient(160deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 100%)",
-                  borderRadius: 30,
-                  overflow: "hidden",
-                  border: "0.50px rgba(255, 255, 255, 0.30) solid",
-                  backdropFilter: "blur(30px)",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  gap: 40,
-                  display: "inline-flex",
-                }}
-              >
-                <div
-                  style={{
-                    width: 320,
-                    position: "relative",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  {firstImageSrc && (
-                    <img src={firstImageSrc} style={{ width: 300 }} />
-                  )}
-                </div>
-                <div
-                  style={{
-                    width: 240,
-                    textAlign: "center",
-                    color: "#F2F2F7",
-                    fontSize: 15,
-                    fontFamily: "Noto Sans TC",
-                    fontWeight: "400",
-                    wordWrap: "break-word",
-                  }}
-                >
-                  {formData.text}
-                </div>
-                <div
-                  style={{
-                    alignSelf: "stretch",
-                    overflow: "hidden",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    gap: 10,
-                    display: "inline-flex",
-                  }}
-                >
-                  {(formData.choices || []).map((c, i) => (
-                    <div
-                      key={"choice" + i}
-                      style={{
-                        textAlign: "center",
-                        color: "black",
-                        fontSize: 16,
-                        paddingLeft: 16,
-                        paddingRight: 16,
-                        paddingTop: 8,
-                        paddingBottom: 8,
-                        background: "#68E3DC",
-                        borderRadius: 12,
-                        fontFamily: "Noto Sans TC",
-                        fontWeight: "500",
-                        letterSpacing: 2,
-                        wordWrap: "break-word",
-                      }}
-                    >
-                      {c && c.choice}
-                    </div>
-                  ))}
-                </div>
-                {formData.allowTextReply && (
-                  <div
-                    style={{
-                      width: 272,
-                      height: 39,
-                      paddingLeft: 16,
-                      paddingRight: 16,
-                      paddingTop: 8,
-                      paddingBottom: 8,
-                      background: "black",
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      border: "0.50px rgba(255, 255, 255, 0.60) solid",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      gap: 10,
-                      display: "inline-flex",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 157,
-                        alignSelf: "stretch",
-                        opacity: 0.5,
-                        color: "white",
-                        fontSize: 16,
-                        fontFamily: "Noto Sans TC",
-                        fontWeight: "700",
-                        wordWrap: "break-word",
-                      }}
-                    >
-                      |
-                    </div>
-                  </div>
-                )}
-              </div>
-            </td>
-          </tr>
-        )}
+      依Android版佈局繪製；劇本自訂的按鈕、面板顏色與首頁背景不在此反映，實際顯示仍依手機而定。
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "flex-start",
+          gap: 16,
+          marginTop: 8,
+        }}
+      >
+        {hasAlert && <AlertPreview {...previewProps} />}
         {hasDialog && (
-          <tr>
-            <td style={{ background: "#555555" }}>
-              <div
-                style={{
-                  width: 320,
-                  paddingBottom: 32,
-                  paddingTop: 32,
-                  background:
-                    "linear-gradient(160deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0) 100%)",
-                  borderRadius: 30,
-                  overflow: "hidden",
-                  border: "0.50px rgba(255, 255, 255, 0.30) solid",
-                  backdropFilter: "blur(30px)",
-                  flexDirection: "column",
-                  justifyContent: "flex-start",
-                  alignItems: "center",
-                  display: "inline-flex",
-                }}
-              >
-                <div
-                  style={{
-                    alignSelf: "stretch",
-                    paddingBottom: 24,
-                    paddingLeft: 24,
-                    paddingRight: 24,
-                    flexDirection: "column",
-                    justifyContent: "flex-end",
-                    alignItems: "center",
-                    gap: 24,
-                    display: "flex",
-                  }}
-                >
-                  <div
-                    style={{
-                      alignSelf: "stretch",
-                      padding: 24,
-                      background:
-                        "linear-gradient(160deg, rgba(143.33, 242.25, 224.44, 0.15) 0%, rgba(143, 242, 224, 0.35) 100%)",
-                      borderTopLeftRadius: 30,
-                      borderTopRightRadius: 30,
-                      borderBottomLeftRadius: 30,
-                      overflow: "hidden",
-                      border: "0.50px rgba(255, 255, 255, 0.30) solid",
-                      backdropFilter: "blur(30px)",
-                      justifyContent: "flex-start",
-                      alignItems: "flex-start",
-                      gap: 40,
-                      display: "inline-flex",
-                    }}
-                  >
-                    <div
-                      style={{
-                        flex: "1 1 0",
-                        color: "#F2F2F7",
-                        fontSize: 14,
-                        fontFamily: "Noto Sans TC",
-                        wordWrap: "break-word",
-                      }}
-                    >
-                      .........
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      alignSelf: "stretch",
-                      padding: 24,
-                      background:
-                        "linear-gradient(160deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.40) 100%)",
-                      borderTopLeftRadius: 30,
-                      borderTopRightRadius: 30,
-                      borderBottomRightRadius: 30,
-                      overflow: "hidden",
-                      border: "0.50px rgba(255, 255, 255, 0.30) solid",
-                      backdropFilter: "blur(30px)",
-                      justifyContent: "flex-start",
-                      alignItems: "flex-start",
-                      gap: 40,
-                      display: "inline-flex",
-                    }}
-                  >
-                    <div
-                      style={{
-                        flex: "1 1 0",
-                        color: "#F2F2F7",
-                        fontSize: 14,
-                        fontFamily: "Noto Sans TC",
-                        wordWrap: "break-word",
-                      }}
-                    >
-                      {formData.text}
-                    </div>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    width: 280,
-                    position: "relative",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  {firstImageSrc && (
-                    <img src={firstImageSrc} style={{ width: 280 }} />
-                  )}
-                </div>
-                <div
-                  style={{
-                    alignSelf: "stretch",
-                    paddingTop: 24,
-                    paddingLeft: 24,
-                    paddingRight: 24,
-                    borderTop: "0.50px rgba(255, 255, 255, 0.20) solid",
-                    flexDirection: "column",
-                    justifyContent: "flex-start",
-                    alignItems: "flex-start",
-                    gap: 16,
-                    display: "flex",
-                  }}
-                >
-                  <div
-                    style={{
-                      alignSelf: "stretch",
-                      justifyContent: "center",
-                      alignItems: "flex-start",
-                      gap: 16,
-                      display: "inline-flex",
-                    }}
-                  >
-                    {(formData.choices || []).map((c, i) => (
-                      <div
-                        key={"choice" + i}
-                        style={{
-                          textAlign: "center",
-                          color: "black",
-                          paddingLeft: 16,
-                          paddingRight: 16,
-                          paddingTop: 8,
-                          paddingBottom: 8,
-                          background: "#68E3DC",
-                          borderRadius: 12,
-                          fontFamily: "Noto Sans TC",
-                          fontWeight: "500",
-                          wordWrap: "break-word",
-                          fontSize: 14,
-                          flex: "1 1 0",
-                        }}
-                      >
-                        {c && c.choice}
-                      </div>
-                    ))}
-                  </div>
-                  {formData.allowTextReply && (
-                    <div
-                      style={{
-                        alignSelf: "stretch",
-                        paddingLeft: 16,
-                        paddingRight: 16,
-                        paddingTop: 8,
-                        paddingBottom: 8,
-                        background: "black",
-                        borderRadius: 12,
-                        overflow: "hidden",
-                        border: "0.50px rgba(255, 255, 255, 0.60) solid",
-                        justifyContent: "flex-start",
-                        alignItems: "center",
-                        gap: 10,
-                        display: "inline-flex",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 157,
-                          alignSelf: "stretch",
-                          opacity: 0.5,
-                          color: "white",
-                          fontSize: 16,
-                          fontFamily: "Noto Sans TC",
-                          fontWeight: "700",
-                          wordWrap: "break-word",
-                        }}
-                      >
-                        |
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </td>
-          </tr>
+          <DialogPreview
+            {...previewProps}
+            sender={
+              sender && {
+                name: sender.name,
+                portraitSrc: senderImage?.image?.src,
+              }
+            }
+          />
         )}
         {hasIntro && (
-          <tr>
-            <td
-              style={{
-                background: "#555555",
-                paddingLeft: 24,
-                paddingRight: 24,
-                paddingTop: 80,
-                paddingBottom: 80,
-              }}
-            >
-              <div
-                style={{
-                  width: 230,
-                  height: 400,
-                  paddingLeft: 24,
-                  paddingRight: 24,
-                  paddingTop: 32,
-                  paddingBottom: 32,
-                  background:
-                    "linear-gradient(160deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 100%)",
-                  borderRadius: 30,
-                  border: "0.50px rgba(255, 255, 255, 0.30) solid",
-                  backdropFilter: "blur(30px)",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  gap: 24,
-                  display: "inline-flex",
-                }}
-              >
-                <div
-                  style={{
-                    alignSelf: "stretch",
-                    flex: "1 1 0",
-                    textAlign: "center",
-                    color: "#F2F2F7",
-                    fontSize: 15,
-                    fontFamily: "Noto Sans TC",
-                    wordWrap: "break-word",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  {formData.text}
-                </div>
-                {(formData.choices || []).map((c, i) => (
-                  <div
-                    key={"choice" + i}
-                    style={{
-                      alignSelf: "stretch",
-                      paddingLeft: 16,
-                      paddingRight: 16,
-                      paddingTop: 8,
-                      paddingBottom: 8,
-                      background: "#68E3DC",
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      gap: 10,
-                      display: "inline-flex",
-                    }}
-                  >
-                    {c && c.choice}
-                  </div>
-                ))}
-              </div>
-            </td>
-          </tr>
+          <IntroPreview
+            {...previewProps}
+            scenarioName={getCurrentScenarioName()}
+          />
         )}
         {hasDialer && (
-          <tr>
-            <td>
-              <img
-                src="https://storage.googleapis.com/daqiaotou/editor/image/dialer.png"
-                width="300"
-              />
-            </td>
-          </tr>
+          <img
+            src="https://storage.googleapis.com/daqiaotou/editor/image/dialer.png"
+            width="300"
+          />
         )}
-      </table>
+      </div>
     </>
   );
   return (

@@ -7,7 +7,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -19,6 +18,8 @@ import {
   useNotify,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
+import { describeError, describeResponse } from "./errors";
 
 import { getRecordField } from "./utils";
 import { useState } from "react";
@@ -58,8 +59,11 @@ import {
 
 import { useAllData, getActions } from "./serverCommon";
 import {
-  AllDataContext,
-  BrokenReferencesField,
+  ProblemsContext,
+  useBrokenReferences,
+  NameWithWarning,
+  ProblemsSummary,
+  OnlyProblems,
   BrokenReferencesMessage,
   findBrokenReferences,
 } from "./brokenReferences";
@@ -75,7 +79,7 @@ const Title = () => {
 };
 
 const broadcastFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 export const BroadcastList = () => {
@@ -85,21 +89,36 @@ export const BroadcastList = () => {
 
 const ScenarioBroadcastList = () => {
   const data = useAllData();
+  const problems = useBrokenReferences(data.broadcasts, data);
+  const [onlyProblems, setOnlyProblems] = React.useState(false);
   return (
-    <AllDataContext.Provider value={data}>
+    <ProblemsContext.Provider value={problems}>
       <List title={<Title />} perPage={100} filters={broadcastFilters}>
-        <Datagrid rowClick={false}>
-          <TextField label="編號" source="rowIndex" />
-          <BrokenReferencesField label="檢查" />
-          <TextField label="名稱" source="name" />
-          <FunctionField label="條件" render={getConditionIcon} />
-          <FunctionField label="內容" render={getContentIcon} />
-          <EditButton label="編輯" />
-          <SendButton label="傳送" />
-          <DeleteButton label="" redirect={false} />
-        </Datagrid>
+        <ProblemsSummary
+          problems={problems}
+          records={data.broadcasts}
+          label="廣播"
+          hint="傳送前請修正"
+          onlyProblems={onlyProblems}
+          onToggle={setOnlyProblems}
+        />
+        <OnlyProblems
+          enabled={onlyProblems}
+          problems={problems}
+          records={data.broadcasts}
+        >
+          <Datagrid rowClick={false} bulkActionButtons={false}>
+            <TextField label="編號" source="rowIndex" />
+            <NameWithWarning label="名稱" source="name" />
+            <FunctionField label="條件" render={getConditionIcon} />
+            <FunctionField label="內容" render={getContentIcon} />
+            <EditButton label="編輯" />
+            <SendButton label="傳送" />
+            <DeleteButton label="" redirect={false} />
+          </Datagrid>
+        </OnlyProblems>
       </List>
-    </AllDataContext.Provider>
+    </ProblemsContext.Provider>
   );
 };
 
@@ -147,7 +166,7 @@ const InputForm = (props) => {
               {formData.hasSound && soundInput(formData)}
               <hr />
               <BooleanInput label="圖文訊息" source="hasPopup" />
-              {formData.hasPopup && popupInput()}
+              {formData.hasPopup && popupInput(formData)}
               <hr />
               <BooleanInput label="關閉圖文框" source="hasPopupDismissal" />
               {formData.hasPopupDismissal && popupDismissalInput()}
@@ -300,13 +319,23 @@ function SendButton(props) {
           type: "success",
         });
       } else {
-        notify("傳送失敗；原因 = " + failed.map((r) => r.status).join(", "), {
+        const reasons = await Promise.all(
+          failed.map((response) =>
+            describeResponse(response, {
+              request: "broadcast",
+              method: "POST",
+              scenarioId: scenario,
+              message: messages[responses.indexOf(response)],
+            })
+          )
+        );
+        notify("傳送失敗：" + [...new Set(reasons)].join("；"), {
           type: "error",
         });
       }
     } catch (e) {
       console.error("failed to send", e);
-      notify("傳送失敗；原因 = " + e, { type: "error" });
+      notify("傳送失敗：" + describeError(e), { type: "error" });
     } finally {
       setLoading(false);
     }

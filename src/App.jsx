@@ -46,8 +46,7 @@ import { withoutDisplayFields } from "./utils";
 import { firebaseConfig as config } from "./FIREBASE_CONFIG";
 import { apiUrl } from "./serverCommon";
 
-import polyglotI18nProvider from "ra-i18n-polyglot"; // install the package
-import englishMessages from "ra-language-english"; // install the package
+import { i18nProvider } from "./i18n";
 import { UrbanBaker } from "./urbanbaker";
 
 const adminOptions = {
@@ -247,10 +246,6 @@ const MyLayout = ({ children }) => (
   </Layout>
 );
 
-const i18nProvider = polyglotI18nProvider(() => englishMessages, "en", {
-  allowMissing: true,
-  onMissingKey: (key) => key,
-});
 
 // react-admin 5 stretches every input across the form; the forms place units
 // and related inputs beside each other, so inputs keep their natural width

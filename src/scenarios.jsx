@@ -7,7 +7,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -28,11 +27,16 @@ import {
   useDataProvider,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
+import { describeError, describeResponse } from "./errors";
 import { useState, useEffect } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
+import DialogActions from "@mui/material/DialogActions";
+import MuiTextField from "@mui/material/TextField";
+import { PublishChecks } from "./scenarioChecks";
 import { useQueryClient } from "@tanstack/react-query";
 import { FirebaseDataProvider } from "react-admin-firebase";
 import * as xid from "./xid";
@@ -61,7 +65,7 @@ import { buildGPX, BaseBuilder } from "gpx-builder";
 const { Point, Track, Segment } = BaseBuilder.MODELS;
 
 const scenarioFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 // const cdnRoot = 'http://daqiaotou-storage.floraland.tw/ghostspeak_editor';
 
@@ -157,6 +161,7 @@ function getTriggerList(currentNode, parentNode) {
 function getCondition(currentNode, data) {
   const { locations, beacons } = data;
   const active =
+    !currentNode.firstAction &&
     currentNode.prevs &&
     currentNode.prevs.find((p) => p.conditionType != "TEXT" && p.conditionType);
   if (active) {
@@ -343,6 +348,7 @@ function PublishButton(props) {
         displayName: displayName,
         description: getRecordField(record, "description"),
         featured: getRecordField(record, "featured"),
+        alwaysShowTriggers: !!getRecordField(record, "alwaysShowTriggers"),
         public: getRecordField(record, "public"),
         ordinal: getRecordField(record, "ordinal") || Date.now(),
         categories: categories,
@@ -362,20 +368,29 @@ function PublishButton(props) {
           "content-type": "application/json",
         },
       })
-        .then((response) => {
+        .then(async (response) => {
           if (response.ok) {
             notify("成功發佈" + getRecordField(record, "name"), {
               type: "success",
             });
           } else {
-            notify("發佈失敗；原因 =" + response.body + " " + response.status, {
+            const reason = await describeResponse(response, {
+              request: "publish",
+              method: "PUT",
+              scenarioId,
+              metadata,
+              template,
+              actions,
+            });
+            notify("發佈失敗：" + reason, {
               type: "error",
+              autoHideDuration: null,
             });
           }
         })
         .catch((e) => {
           console.error("failed to publish", e);
-          notify("發佈失敗；原因 = " + e, { type: "error" });
+          notify("發佈失敗：" + describeError(e), { type: "error" });
         })
         .finally(() => {
           setLoading(false);
@@ -383,7 +398,7 @@ function PublishButton(props) {
         });
     } catch (e) {
       console.error("failed to publish", e);
-      notify("發佈失敗；原因 = " + e, { type: "error" });
+      notify("發佈失敗：" + describeError(e), { type: "error" });
       setLoading(false);
       setOpen(false);
     }
@@ -392,6 +407,7 @@ function PublishButton(props) {
   const name = getRecordField(record, "name");
   const confirm = (
     <span>
+      <PublishChecks actions={actions} />
       <p>你即將發佈《{name}》。使用者的進度將被中斷。確定嗎？</p>
       <p>
         (正式上架需求請與
@@ -445,20 +461,22 @@ function UnpublishButton(props) {
     setOpen(false);
     setLoading(true);
     unpublish(getRecordField(record, "id"))
-      .then((response) => {
+      .then(async (response) => {
         if (response.ok) {
           notify("成功解除發佈" + getRecordField(record, "name"), {
             type: "success",
           });
         } else {
-          notify(
-            "解除發佈失敗；原因 =" + response.body + " " + response.status,
-            { type: "error" }
-          );
+          const reason = await describeResponse(response, {
+            request: "unpublish",
+            method: "DELETE",
+            scenarioId: getRecordField(record, "id"),
+          });
+          notify("解除發佈失敗：" + reason, { type: "error" });
         }
       })
       .catch((e) => {
-        notify("解除發佈失敗；原因 =" + e, { type: "error" });
+        notify("解除發佈失敗：" + describeError(e), { type: "error" });
       })
       .finally(() => {
         setLoading(false);
@@ -509,49 +527,17 @@ function GpxButton(props) {
       return;
     }
 
-    function getNode(tree) {
-      const parents = tree.node.parents
-        ? tree.node.parents.map((p) => actions[p])
-        : [];
-      const condition = getCondition(tree.node, data);
-      return {
-        name: tree.node.firstAction ? "initial" : tree.node.id,
-        children: tree.node.children || [],
-        exclusiveWith: tree.node.exclusiveWith || [],
-        triggers: getTriggers(tree.node, parents),
-        performances: getActions(tree.node, data, condition).map((a) => ({
-          action: a,
-          delay: a.delay === 0 || a.delay ? a.delay : tree.node.delay || 0,
-        })),
-      };
-    }
-
-    function getNodes(tree) {
+    // the trigger conditions in tree order; the route only needs the
+    // geofence locations, so missing sounds or images must not stop it
+    function getConditions(tree) {
       return tree.children.reduce(
-        (agg, c) => [...agg, ...getNodes(c)],
-        [getNode(tree)]
+        (agg, c) => [...agg, ...getConditions(c)],
+        [getCondition(tree.node, data)]
       );
     }
     try {
-      const payload = getNodes(actionTree);
-      const urlString = `${apiUrl}/v1/scenario/graphscript/${getRecordField(
-        record,
-        "id"
-      )}`;
-      const url = new URL(urlString);
-      const params = {
-        name: getRecordField(record, "name"),
-        overwrite: true,
-      };
-      url.search = new URLSearchParams(params).toString();
-
-      const points = payload
-        .map((n) =>
-          n.performances
-            .map((p) => p.action.content.condition)
-            .find((c) => c.type === "GEOFENCE")
-        )
-        .filter((c) => c)
+      const points = getConditions(actionTree)
+        .filter((c) => c.type === "GEOFENCE" && c.location)
         .map((c) => c.location)
         .map(
           (l) =>
@@ -589,7 +575,7 @@ function GpxButton(props) {
       link.click();
     } catch (e) {
       console.error("error exporting gpx", e);
-      notify("路線檔產生失敗；原因 = " + e, { type: "error" });
+      notify("路線檔產生失敗：" + describeError(e), { type: "error" });
       setLoading(false);
       setOpen(false);
     }
@@ -674,14 +660,16 @@ function DeleteButton(props) {
           type: "success",
         });
       } else {
-        notify(
-          `刪除失敗；原因 = 無法解除發佈${response.body} ${response.status}`,
-          { type: "error" }
-        );
+        const reason = await describeResponse(response, {
+          request: "unpublish before delete",
+          method: "DELETE",
+          scenarioId: scnId,
+        });
+        notify(`刪除失敗：無法解除發佈，${reason}`, { type: "error" });
       }
     } catch (e) {
       console.error("failed to delete scenario", e);
-      notify("刪除失敗；原因 =" + e, { type: "error" });
+      notify("刪除失敗：" + describeError(e), { type: "error" });
     } finally {
       setLoading(false);
       refresh();
@@ -713,7 +701,11 @@ function CloneButton(props) {
   const dataProvider = useDataProvider();
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const handleClick = () => setOpen(true);
+  const [cloneName, setCloneName] = useState("");
+  const handleClick = () => {
+    setCloneName(getRecordField(record, "name") + "（副本）");
+    setOpen(true);
+  };
   const handleDialogClose = () => setOpen(false);
 
   const {
@@ -749,7 +741,7 @@ function CloneButton(props) {
   const createData = JSON.parse(JSON.stringify(record));
   const cloneId = xid.next();
   createData.id = cloneId;
-  createData.name = getRecordField(record, "name") + "-" + cloneId;
+  createData.name = cloneName.trim();
   createData.cloned = true;
   updateValueFor(createData, "pictureId");
   createData.passcode = null;
@@ -764,11 +756,13 @@ function CloneButton(props) {
   async function cloneScenario() {
     await create();
 
-    function createFields(field, fieldName) {
+    // `refFields` hold ids of other records and are remapped like the id
+    function createFields(field, fieldName, refFields = []) {
       const values = Object.values(field);
       return values.map((a) => {
         const newA = JSON.parse(JSON.stringify(a));
         newA.id = idMap.get(a.id);
+        refFields.forEach((f) => updateValueFor(newA, f));
         return baseProvider.create(fieldName, {
           data: withoutDisplayFields(newA),
         });
@@ -782,7 +776,7 @@ function CloneButton(props) {
       ...createFields(sounds, "sounds"),
       ...createFields(mapStyles, "mapStyles"),
       ...createFields(variables, "variables"),
-      ...createFields(people, "people"),
+      ...createFields(people, "people", ["userPortrait"]),
     ]);
     function updateValuesFor(a) {
       updateValueFor(a, "geofenceCenter");
@@ -814,8 +808,7 @@ function CloneButton(props) {
       }
       if (a.pictures) {
         a.pictures.forEach((p) => {
-          const newId = idMap.get(p.pictureId);
-          p.pictureId = newId;
+          updateValueFor(p, "pictureId");
         });
       }
     }
@@ -905,7 +898,19 @@ function CloneButton(props) {
       notify("複製成功", { type: "success" });
     } catch (e) {
       console.error("failed to clone", e);
-      notify("複製失敗；原因 = " + e, { type: "error" });
+      // leave nothing behind: drop the half-filled copy and its records
+      let leftover = "";
+      try {
+        await deleteScenarioRecords(cloneId);
+        await dataProvider.delete("scenarios", {
+          id: cloneId,
+          previousData: createData,
+        });
+      } catch (cleanupError) {
+        console.error("failed to remove the half-made clone", cleanupError);
+        leftover = `；未完成的副本《${createData.name}》需手動刪除`;
+      }
+      notify("複製失敗：" + describeError(e) + leftover, { type: "error" });
     } finally {
       setLoading(false);
       refresh();
@@ -919,18 +924,31 @@ function CloneButton(props) {
         onClick={handleClick}
         disabled={disabled || loading || !loaded}
       />
-      <Confirm
-        isOpen={open}
-        title="確認複製"
-        content={`你即將複製一份《${getRecordField(
-          record,
-          "name"
-        )}》；確定嗎？`}
-        onConfirm={handleConfirm}
-        onClose={handleDialogClose}
-        confirm="確認複製"
-        cancel="取消"
-      />
+      <Dialog open={open} onClose={handleDialogClose} fullWidth maxWidth="xs">
+        <DialogTitle>複製《{getRecordField(record, "name")}》</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            副本會包含所有動作、廣播、地點、圖片與聲音，並由你擁有。
+          </DialogContentText>
+          <MuiTextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            label="副本名稱"
+            value={cloneName}
+            onChange={(e) => setCloneName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button label="取消" onClick={handleDialogClose} />
+          <Button
+            label="確認複製"
+            variant="contained"
+            onClick={handleConfirm}
+            disabled={!cloneName.trim()}
+          />
+        </DialogActions>
+      </Dialog>
       <Blocker isOpen={loading} />
     </>
   );
@@ -949,7 +967,7 @@ export const ScenarioList = () => {
       perPage={25}
       filters={scenarioFilters}
     >
-      <Datagrid rowClick={false}>
+      <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField label="名稱" source="name" />
         <TextField label="說明" source="description" />
         <BooleanField label="正式上架" source="public" />
@@ -1007,6 +1025,11 @@ const InputForm = (props) => {
                 />
                 <RichTextInput label="詳細說明" source="details" />
                 <BooleanInput
+                  label="一律顯示觸發箭頭"
+                  source="alwaysShowTriggers"
+                  helperText="開啟時，App 隨時顯示每個待觸發地點的箭頭，玩家可以直接跳到下一段；關閉時，只在玩家到了卻沒有反應的時候才出現「我已經到了」。"
+                />
+                <BooleanInput
                   label="精選"
                   source="featured"
                   readOnly={!isSuper}
@@ -1062,7 +1085,8 @@ export function getActionTree(actions) {
   const initial = actions.find((a) => a.firstAction);
   const nodesSet = new Set();
   const parentMap = actions.reduce(function (m, a) {
-    if (a.prevs) {
+    // the initial action's previous steps are hidden in the form and may be stale
+    if (a.prevs && !a.firstAction) {
       a.prevs.forEach((p) => {
         const orig = m.get(p.prev) || [];
         m.set(p.prev, [...orig, a]);

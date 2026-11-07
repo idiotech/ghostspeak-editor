@@ -4,20 +4,20 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   EditButton,
   TextInput,
   required,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import { getDeleteButton } from "./deleteResource";
 import ImageReferenceInput from "./ImageReferenceInput";
 
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 const peopleFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {
@@ -43,7 +43,7 @@ export const PeopleList = () => {
         sort={{ field: "name", order: "ASC" }}
         filters={peopleFilters}
       >
-        <Datagrid rowClick={false}>
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="代號" source="id" />
           <TextField label="名字" source="name" />

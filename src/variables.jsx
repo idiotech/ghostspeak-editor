@@ -6,7 +6,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -17,13 +16,14 @@ import {
   NumberField,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
 import { longInputSx } from "./inputWidth";
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 import { getDeleteButton } from "./deleteResource";
 
 const variableFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {
@@ -46,7 +46,7 @@ export const VariableList = () => {
   if (getCurrentScenario())
     return (
       <List title={<Title />} filters={variableFilters}>
-        <Datagrid rowClick={false}>
+        <Datagrid rowClick={false} bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="名稱" source="name" />
           <NumberField label="初始值" source="value" />

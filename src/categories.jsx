@@ -5,7 +5,6 @@ import {
   List,
   Create,
   Edit,
-  SimpleForm,
   TextField,
   TextInput,
   EditButton,
@@ -25,6 +24,8 @@ import {
   SelectInput,
   useRecordContext,
 } from "react-admin";
+import SimpleForm from "./SimpleForm";
+import { describeError, describeResponse } from "./errors";
 import { longInputSx } from "./inputWidth";
 
 import { useState } from "react";
@@ -38,7 +39,7 @@ const displayTypes = [
 ];
 
 const categoryFilters = [
-  <TextInput label="Search" source="name" alwaysOn key="name" />,
+  <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
 
 const Title = () => {
@@ -78,17 +79,20 @@ function CatPublishButton() {
           "content-type": "application/json",
         },
       })
-        .then((response) => {
+        .then(async (response) => {
           if (response.ok) {
             notify("成功發佈分類", { type: "success" });
           } else {
-            notify("發佈失敗；原因 =" + response.body + " " + response.status, {
-              type: "error",
+            const reason = await describeResponse(response, {
+              request: "publish categories",
+              method: "PUT",
+              metadata,
             });
+            notify("發佈失敗：" + reason, { type: "error" });
           }
         })
         .catch((e) => {
-          notify("發佈失敗；原因 =" + e, { type: "error" });
+          notify("發佈失敗：" + describeError(e), { type: "error" });
         })
         .finally(() => {
           setLoading(false);
@@ -134,7 +138,7 @@ export const CategoryList = () => {
       filters={categoryFilters}
       sort={{ field: "order", order: "ASC" }}
     >
-      <Datagrid rowClick={false}>
+      <Datagrid rowClick={false} bulkActionButtons={false}>
         <NumberField label="順序" source="order" />
         <TextField label="名稱" source="name" />
         <TextField label="說明" source="description" />

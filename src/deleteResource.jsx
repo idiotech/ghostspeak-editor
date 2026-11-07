@@ -1,4 +1,6 @@
 import { getRecordField } from "./utils";
+import { findValues } from "./usage";
+import { describeError } from "./errors";
 import { getCurrentScenario } from "./currentScenario";
 import {
   Button,
@@ -30,17 +32,6 @@ export function getDeleteButton(props, resource, resourceName, references) {
   const handleDialogClose = () => setOpen(false);
   const id = getRecordField(record, "id");
   const dataProvider = useDataProvider();
-  // values at a dotted path; arrays along the way are flattened, so
-  // "prevs.beacon" finds the beacon of every previous step
-  function findValues(record, path) {
-    return path
-      .split(".")
-      .reduce(
-        (values, field) =>
-          values.flatMap((v) => (v && v[field] ? v[field] : [])),
-        [record]
-      );
-  }
   async function getRecords(referencingResource) {
     if (referencingResource === "scenarios") {
       // the current scenario is the only one that can use this scenario's records
@@ -85,7 +76,8 @@ export function getDeleteButton(props, resource, resourceName, references) {
         });
       }
     } catch (e) {
-      notify("刪除失敗；原因 =" + e, { type: "error" });
+      console.error("failed to delete", e);
+      notify("刪除失敗：" + describeError(e), { type: "error" });
     }
     setLoading(false);
     setOpen(false);
