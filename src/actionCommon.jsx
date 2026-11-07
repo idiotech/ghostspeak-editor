@@ -78,6 +78,35 @@ const beaconTypes = [
   { id: "ENTER", name: "接近" },
   { id: "EXIT", name: "離開" },
 ];
+// ARRIVE: the player has to reach the center, the radius only arms the fence;
+// SIGHT: it fires as soon as the player is inside the radius, e.g. on seeing the target
+const geofenceModes = [
+  { id: "ARRIVE", name: "到達中心點" },
+  { id: "SIGHT", name: "進入範圍即觸發（遠望目標）" },
+];
+const DEFAULT_GEOFENCE_MODE = "ARRIVE";
+// a radius players enter reliably with 10 to 20 m of GPS error, for new fences
+const DEFAULT_GEOFENCE_RADIUS = 30;
+// what a fence saved without a radius has always been published with
+const LEGACY_GEOFENCE_RADIUS = 14;
+
+// the trigger condition the server expects, from an action's previous-step
+// entry or from a broadcast itself; shared so both publish the same shape
+export function buildCondition(node, { locations, beacons }) {
+  if (!node.conditionType || node.conditionType === "ALWAYS")
+    return { type: "ALWAYS" };
+  return {
+    type: node.conditionType,
+    beaconId: (node.beacon && beacons[node.beacon]?.beaconId) || null,
+    threshold: node.beaconThreshold,
+    mode:
+      node.conditionType === "GEOFENCE"
+        ? node.geofenceMode || DEFAULT_GEOFENCE_MODE
+        : node.beaconType,
+    location: node.geofenceCenter ? locations[node.geofenceCenter] : null,
+    radius: node.geofenceRadius || LEGACY_GEOFENCE_RADIUS,
+  };
+}
 const callTypes = [
   { id: "CONNECTING", name: "未接通" },
   { id: "CONNECTED", name: "接通" },
@@ -170,7 +199,16 @@ const locationCondition = () => (
       source="geofenceRadius"
       validate={[required(), number(), validateInteger]}
       step={1}
+      defaultValue={DEFAULT_GEOFENCE_RADIUS}
       slotProps={unit("公尺")}
+    />
+    <br />
+    <SelectInput
+      label="觸發方式"
+      source="geofenceMode"
+      choices={geofenceModes}
+      defaultValue={DEFAULT_GEOFENCE_MODE}
+      validate={[required()]}
     />
   </>
 );
@@ -1206,6 +1244,8 @@ export {
   getContentIcon,
   locationCondition,
   beaconCondition,
+  DEFAULT_GEOFENCE_RADIUS,
+  LEGACY_GEOFENCE_RADIUS,
   soundInput,
   popupInput,
   popupDismissalInput,
