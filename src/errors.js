@@ -43,8 +43,13 @@ async function readResponseBody(response) {
   try {
     const json = JSON.parse(raw);
     if (json && typeof json === "object") {
-      const message =
-        json.message || json.error || json.detail || json.errors || json.reason;
+      const message = ["message", "error", "detail", "errors", "reason"]
+        .map((key) => json[key])
+        .find(
+          (value) =>
+            (typeof value === "string" && value.trim() !== "") ||
+            (value && typeof value === "object" && Object.keys(value).length > 0)
+        );
       if (message)
         return {
           raw,
@@ -60,6 +65,11 @@ async function readResponseBody(response) {
 }
 
 const maxMessageLength = 400;
+const maxValueLength = 80;
+
+function clip(text, max = maxMessageLength) {
+  return text.length > max ? text.slice(0, max) + "…" : text;
+}
 
 // Splits a circe cursor path like ".[3].performances[0].action.content.task.text"
 // (or "[3].performances[0]...") into ["3", "performances", "0", ...].
@@ -75,50 +85,88 @@ function splitPath(path) {
 function translateReason(reason, field) {
   const fieldText = field ? `欄位「${field}」` : "有個欄位";
   if (/Missing required field/i.test(reason)) return `缺少必要${fieldText}`;
-  const wrongType = reason.match(/wrong type, expecting (.+)$/i);
-  if (wrongType) {
-    const got = reason.match(/Got value '([^']*)'/);
-    return `${fieldText}的值不對：需要 ${wrongType[1]}${got ? `，但給的是 ${got[1]}` : ""}`;
-  }
+  // circe: Got value '<json>' with wrong type, expecting <type>
+  const wrongType = reason.match(/Got value '(.*)' with wrong type, expecting (.+)$/is);
+  if (wrongType)
+    return `${fieldText}的值不對：需要 ${wrongType[2]}，但給的是 ${clip(wrongType[1], maxValueLength)}`;
+  if (/wrong type, expecting (.+)$/i.test(reason))
+    return `${fieldText}的值不對：需要 ${reason.match(/expecting (.+)$/i)[1]}`;
   if (/not found in|not a valid|unknown|unexpected/i.test(reason))
     return `${fieldText}的值伺服器不認得：${reason}`;
   return `${fieldText}：${reason}`;
 }
 
+// the editor's names for the task types it publishes
+const taskNames = {
+  SOUND: "聲音",
+  POPUP: "對話框",
+  POPUP_DISMISSAL: "關閉對話框",
+  POPUP_STYLE: "對話框樣式",
+  BUTTON_STYLE: "按鈕樣式",
+  INCOMING_CALL: "來電",
+  MARKER: "地圖標記",
+  MARKER_REMOVAL: "移除地圖標記",
+  MAP_STYLE: "地圖樣式",
+  INTRO_IMAGE: "開場圖",
+  GUIDE_IMAGE: "導覽圖",
+  GUIDE_IMAGE_REMOVAL: "移除導覽圖",
+  SILENCE: "靜音",
+  VARIABLE_UPDATES: "變數更新",
+  END_GAME: "結束遊戲",
+  FRIEND: "好友",
+};
+
+// One editor effect becomes one or more server actions, and the editor adds
+// some of its own (friends, the shadow intro), so the position in
+// `performances` means nothing to the author. Name the effect by its type.
+function describeEffect(performance, index) {
+  const action = performance?.action;
+  const type = action?.content?.task?.type;
+  if (!type) return `的第 ${index + 1} 個效果`;
+  const name = taskNames[type] ? `${taskNames[type]}（${type}）` : type;
+  const generated = action?.id === "shadow-intro" || type === "FRIEND";
+  return `的${name}效果` + (generated ? "（由編輯器自動加入，請回報給開發者）" : "");
+}
+
 // Names the place in the published template that a circe path points at:
 // which editor action (node), which of its effects (performance), which field.
 function locateInTemplate(parts, template, actions) {
+  // the server decodes the template on its own, but tolerate a path rooted at
+  // the request body ({ template, metadata })
+  if (parts[0] === "template") parts = parts.slice(1);
+  if (parts[0] === "metadata")
+    return "劇本設定" + (parts[1] !== undefined ? `的「${parts[1]}」` : "");
   if (!Array.isArray(template) || parts.length === 0) return null;
-  const nodeIndex = Number(parts[0]);
-  const node = template[nodeIndex];
+  const node = template[Number(parts[0])];
   if (!node) return null;
   const actionName =
     node.name === "initial" ? "初始動作" : actions?.[node.name]?.name || node.name;
   let where = `動作「${actionName}」`;
   if (parts[1] === "performances" && parts[2] !== undefined) {
-    const performance = node.performances?.[Number(parts[2])];
-    const task = performance?.action?.content?.task;
-    const kind = task?.type ? `（${task.type}）` : "";
-    where += `的第 ${Number(parts[2]) + 1} 個效果${kind}`;
+    const index = Number(parts[2]);
+    where += describeEffect(node.performances?.[index], index);
   } else if (parts[1] === "triggers" && parts[2] !== undefined) {
     where += `的第 ${Number(parts[2]) + 1} 個觸發條件`;
   } else if (parts[1] === "preconditions" && parts[2] !== undefined) {
     where += `的第 ${Number(parts[2]) + 1} 個前提條件`;
-  } else if (parts[1]) {
+  } else if (parts[1] !== undefined) {
     where += `的「${parts[1]}」`;
   }
   return where;
 }
 
 // Turns the server's "invalid template: DecodingFailure at <path>: <reason>"
-// into a sentence naming the action, the effect and the field at fault.
+// (circe 0.14's getMessage) into a sentence naming the action, the effect and
+// the field at fault.
 export function describeTemplateFailure(message, template, actions) {
   const circe = message.match(/DecodingFailure at (\S+): (.*)$/s);
   if (!circe) {
     const parse = message.match(/ParsingFailure: (.*)$/s);
-    return parse
-      ? `伺服器讀不懂送出的劇本資料（${parse[1]}）`
-      : `伺服器無法接受這個劇本：${message}`;
+    return clip(
+      parse
+        ? `伺服器讀不懂送出的劇本資料（${parse[1]}）`
+        : `伺服器無法接受這個劇本：${message}`
+    );
   }
   const [, path, reason] = circe;
   const parts = splitPath(path);
@@ -126,29 +174,33 @@ export function describeTemplateFailure(message, template, actions) {
   const field = last !== undefined && isNaN(Number(last)) ? last : "";
   const where = locateInTemplate(parts, template, actions);
   const problem = translateReason(reason.trim(), field);
-  return where
-    ? `${where}${problem}。請修正這個動作後再發佈`
-    : `劇本資料的 ${path} ${problem}`;
+  if (!where) return clip(`劇本資料的 ${path} ${problem}`);
+  const advice = where.startsWith("劇本設定") ? "請修正劇本設定後再發佈" : "請修正這個動作後再發佈";
+  return clip(`${where}${problem}。${advice}`);
 }
 
 // What the Ghostspeak server is telling us, in plain language. The server
 // answers a bad publish with a 500 whose text explains the problem, so the
 // text matters more than the status.
 function describeServerMessage(status, message, context) {
-  const invalid = message.match(/invalid (?:scenario|template)[:：]\s*(.*)$/s);
+  const invalid = message.match(/invalid (?:scenario|template)[:：]\s*(.*)$/is);
   if (invalid) {
-    const inner = invalid[1].replace(/^invalid template:\s*/, "");
+    const inner = invalid[1].replace(/^invalid template:\s*/i, "");
     return describeTemplateFailure(inner, context.template, context.actions);
   }
+  // a request about a scenario (publish, unpublish, broadcast) carries its id
+  const aboutScenario = !!context.scenarioId;
   if (/no such scenario/i.test(message))
-    return "伺服器上找不到這個劇本，可能尚未發佈或已被解除發佈";
-  const shortMessage =
-    message.length > maxMessageLength
-      ? message.slice(0, maxMessageLength) + "…"
-      : message;
+    return aboutScenario
+      ? "伺服器上找不到這個劇本，可能尚未發佈或已被解除發佈"
+      : "伺服器回覆「no such scenario」";
+  const shortMessage = clip(message);
   const detail = shortMessage ? `（${shortMessage}）` : "";
   if (status === 401 || status === 403) return "伺服器拒絕了這個操作，請確認你有權限" + detail;
-  if (status === 404) return "伺服器上找不到這個劇本" + detail;
+  if (status === 404)
+    return aboutScenario
+      ? "伺服器上找不到這個劇本" + detail
+      : "伺服器上沒有這個功能的位址（404），請確認伺服器網址" + detail;
   if (status === 409) return "伺服器上的資料有衝突，請重新整理後再試" + detail;
   if (status >= 500)
     return shortMessage
