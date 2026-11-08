@@ -1,6 +1,8 @@
 // Turns the errors Firebase, fetch and the code throw into a sentence the
 // author can act on. Technical detail goes to the console, not the screen.
 
+import { describePath } from "./fieldLabels.js";
+
 const firebaseCodes = {
   "permission-denied": "你沒有權限修改這個劇本",
   unauthenticated: "登入已逾期，請重新登入",
@@ -19,8 +21,13 @@ export function describeError(e) {
   const code = typeof e.code === "string" ? e.code.split("/").pop() : "";
   if (firebaseCodes[code]) return firebaseCodes[code];
   const message = e.message || String(e);
-  if (/Unsupported field value: undefined/.test(message))
-    return "有欄位是空的，請把資料填完整後再試";
+  // Firestore: "Unsupported field value: undefined (found in field description in document ...)"
+  if (/Unsupported field value: undefined/.test(message)) {
+    const field = /found in field (\S+)/.exec(message)?.[1];
+    return field
+      ? `${describePath(field)}欄位是空的，請把資料填完整後再試`
+      : "有欄位是空的，請把資料填完整後再試";
+  }
   if (/Failed to fetch|NetworkError|network-request-failed|ERR_INTERNET/i.test(message))
     return "無法連線到伺服器，請檢查網路後再試";
   if (/quota|exceeded/i.test(message)) return "資料庫用量已達上限，請稍後再試";

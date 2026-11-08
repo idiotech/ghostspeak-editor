@@ -5,7 +5,7 @@
 // sees a raw error.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { describeResponse, describeTemplateFailure } from "./errors.js";
+import { describeError, describeResponse, describeTemplateFailure } from "./errors.js";
 
 const template = [
   {
@@ -168,4 +168,19 @@ test("the console record carries the request, the status and the raw body, not t
   assert.equal(record.template, undefined);
   assert.equal(record.actions, undefined);
   assert.ok(record.body.startsWith("invalid scenario"));
+});
+
+test("a Firestore complaint about an empty field names the field", () => {
+  const firestore = new Error(
+    "Function updateDoc() called with invalid data. Unsupported field value: undefined (found in field description in document ghostspeak_editor/test/variables/v1)"
+  );
+  assert.equal(describeError(firestore), "「description」欄位是空的，請把資料填完整後再試");
+  const nested = new Error(
+    "Function setDoc() called with invalid data. Unsupported field value: undefined (found in field prevs.0.userReply in document x)"
+  );
+  assert.equal(describeError(nested), "「prevs.0.userReply」欄位是空的，請把資料填完整後再試");
+  assert.equal(
+    describeError(new Error("Unsupported field value: undefined")),
+    "有欄位是空的，請把資料填完整後再試"
+  );
 });
