@@ -83,6 +83,7 @@ import {
 } from "./brokenReferences";
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
+import StopRowClick from "./StopRowClick";
 
 const actionFilters = [
   <TextInput label="搜尋" source="name" alwaysOn key="name" />,
@@ -136,7 +137,7 @@ const ScenarioActionList = () => {
           records={data.actions}
         >
           {/* no bulk delete: only ActionDelete checks that nothing still refers to the action */}
-          <Datagrid rowClick={false} bulkActionButtons={false}>
+          <Datagrid rowClick="edit" bulkActionButtons={false}>
             <FunctionField label="編號" render={getRowIndex} />
             <FirstActionButton label="開頭" />
             <NameWithWarning label="名稱" source="name" />
@@ -215,7 +216,7 @@ const FirstActionButton = () => {
   };
 
   return (
-    <>
+    <StopRowClick>
       <Button label="設為開頭" onClick={() => setOpen(true)} disabled={saving} />
       <Confirm
         isOpen={open}
@@ -225,7 +226,7 @@ const FirstActionButton = () => {
         onConfirm={handleConfirm}
         onClose={() => setOpen(false)}
       />
-    </>
+    </StopRowClick>
   );
 };
 
@@ -588,10 +589,12 @@ export const ActionEdit = () => {
 function NextButton(props) {
   const record = useRecordContext(props);
   return (
-    <CreateButton
-      label="下一步"
-      to="/actions/create"
-      state={nextStepState(getRecordField(record, "id"))}
-    />
+    <StopRowClick>
+      <CreateButton
+        label="下一步"
+        to="/actions/create"
+        state={nextStepState(getRecordField(record, "id"))}
+      />
+    </StopRowClick>
   );
 }

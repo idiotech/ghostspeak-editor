@@ -12,6 +12,7 @@ import {
 } from "react-admin";
 import * as React from "react";
 import { useState } from "react";
+import StopRowClick from "./StopRowClick";
 
 const resourceLabels = {
   actions: "動作",
@@ -84,7 +85,7 @@ export function getDeleteButton(props, resource, resourceName, references) {
     refresh();
   }
   return (
-    <>
+    <StopRowClick>
       <Button label="刪除" onClick={handleClick} disabled={loading} />
       <Confirm
         isOpen={open}
@@ -95,6 +96,6 @@ export function getDeleteButton(props, resource, resourceName, references) {
         confirm="確認刪除"
         cancel="取消"
       />
-    </>
+    </StopRowClick>
   );
 }

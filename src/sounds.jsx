@@ -23,6 +23,7 @@ import { useUsage, UsedByField } from "./usage";
 
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
+import StopRowClick from "./StopRowClick";
 const soundFilters = [
   <TextInput label="搜尋" source="name" alwaysOn key="name" />,
 ];
@@ -49,7 +50,9 @@ const PlayField = () => {
   const src = record?.sound?.src;
   if (!src) return null;
   return (
-    <audio controls preload="none" src={src} style={{ height: 32, width: 260 }} />
+    <StopRowClick>
+      <audio controls preload="none" src={src} style={{ height: 32, width: 260 }} />
+    </StopRowClick>
   );
 };
 
@@ -68,7 +71,7 @@ const ScenarioSoundList = () => {
       sort={{ field: "name", order: "ASC" }}
       filters={soundFilters}
     >
-      <Datagrid rowClick={false} bulkActionButtons={false}>
+      <Datagrid rowClick="edit" bulkActionButtons={false}>
         <TextField label="編號" source="rowIndex" />
         <TextField label="名稱" source="name" />
         <PlayField label="試聽" />

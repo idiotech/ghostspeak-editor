@@ -76,7 +76,7 @@ const ScenarioImageList = () => {
   const usage = useUsage(data, imageReferences, cover);
   return (
     <List title={<Title />} filters={imageFilters}>
-      <Datagrid rowClick={false} bulkActionButtons={false}>
+      <Datagrid rowClick="edit" bulkActionButtons={false}>
         <TextField label="編號" source="rowIndex" />
         <TextField label="名稱" source="name" />
         <MyImageField label="圖片" source="image.src" />

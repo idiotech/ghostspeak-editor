@@ -66,6 +66,7 @@ import {
 } from "./currentScenario";
 
 import { buildGPX, BaseBuilder } from "gpx-builder";
+import StopRowClick from "./StopRowClick";
 const { Point, Track, Segment } = BaseBuilder.MODELS;
 
 const scenarioFilters = [
@@ -95,7 +96,9 @@ function UseButton(props) {
     refresh();
   }
   return (
-    <Button label="設定為目前劇本" onClick={handleClick} disabled={active} />
+    <StopRowClick>
+      <Button label="設定為目前劇本" onClick={handleClick} disabled={active} />
+    </StopRowClick>
   );
 }
 
@@ -415,7 +418,7 @@ function PublishButton(props) {
   );
 
   return (
-    <>
+    <StopRowClick>
       <Button
         label="發佈"
         onClick={handleClick}
@@ -430,7 +433,7 @@ function PublishButton(props) {
         confirm="確認發佈"
         cancel="取消"
       />
-    </>
+    </StopRowClick>
   );
 }
 
@@ -476,7 +479,7 @@ function UnpublishButton(props) {
   }
 
   return (
-    <>
+    <StopRowClick>
       <Button
         label="解除發佈"
         onClick={handleClick}
@@ -494,7 +497,7 @@ function UnpublishButton(props) {
         confirm="確認解除發佈"
         cancel="取消"
       />
-    </>
+    </StopRowClick>
   );
 }
 
@@ -572,13 +575,13 @@ function GpxButton(props) {
     }
   }
   return (
-    <>
+    <StopRowClick>
       <Button
         label="路線檔"
         onClick={handleConfirm}
         disabled={disabled || loading || !data.loaded}
       />
-    </>
+    </StopRowClick>
   );
 }
 
@@ -667,7 +670,7 @@ function DeleteButton(props) {
     }
   }
   return (
-    <>
+    <StopRowClick>
       <Button label="刪除" onClick={handleClick} disabled={loading} />
       <Confirm
         isOpen={open}
@@ -681,7 +684,7 @@ function DeleteButton(props) {
         confirm="確認刪除"
         cancel="取消"
       />
-    </>
+    </StopRowClick>
   );
 }
 
@@ -910,7 +913,7 @@ function CloneButton(props) {
   }
 
   return (
-    <>
+    <StopRowClick>
       <Button
         label="複製"
         onClick={handleClick}
@@ -942,7 +945,7 @@ function CloneButton(props) {
         </DialogActions>
       </Dialog>
       <Blocker isOpen={loading} />
-    </>
+    </StopRowClick>
   );
 }
 
@@ -959,7 +962,7 @@ export const ScenarioList = () => {
       perPage={25}
       filters={scenarioFilters}
     >
-      <Datagrid rowClick={false} bulkActionButtons={false}>
+      <Datagrid rowClick="edit" bulkActionButtons={false}>
         <TextField label="名稱" source="name" />
         <TextField label="說明" source="description" />
         <BooleanField label="正式上架" source="public" />

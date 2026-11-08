@@ -57,7 +57,7 @@ export const LocationList = () => {
         perPage={100}
         filters={locationFilters}
       >
-        <Datagrid rowClick={false} bulkActionButtons={false}>
+        <Datagrid rowClick="edit" bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="名稱" source="name" />
           <CoordinateField label="座標" source="coordinates" />

@@ -138,7 +138,7 @@ export const CategoryList = () => {
       filters={categoryFilters}
       sort={{ field: "order", order: "ASC" }}
     >
-      <Datagrid rowClick={false} bulkActionButtons={false}>
+      <Datagrid rowClick="edit" bulkActionButtons={false}>
         <NumberField label="順序" source="order" />
         <TextField label="名稱" source="name" />
         <TextField label="說明" source="description" />

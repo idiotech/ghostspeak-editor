@@ -12,6 +12,7 @@ import Alert from "@mui/material/Alert";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import WarningIcon from "@mui/icons-material/Warning";
+import StopRowClick from "./StopRowClick";
 
 // Lists the records an action or broadcast refers to that no longer exist,
 // following the lookups publishing and sending make, so every problem shows
@@ -125,14 +126,16 @@ export const NameWithWarning = ({ source = "name" }) => {
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       {record[source]}
       {problems && (
-        <Tooltip title={problems.join("、")}>
-          <Link
-            to={createPath({ resource, type: "edit", id: record.id })}
-            style={{ display: "inline-flex" }}
-          >
-            <WarningIcon color="error" fontSize="small" />
-          </Link>
-        </Tooltip>
+        <StopRowClick>
+          <Tooltip title={problems.join("、")}>
+            <Link
+              to={createPath({ resource, type: "edit", id: record.id })}
+              style={{ display: "inline-flex" }}
+            >
+              <WarningIcon color="error" fontSize="small" />
+            </Link>
+          </Tooltip>
+        </StopRowClick>
       )}
     </span>
   );
