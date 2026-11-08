@@ -2,6 +2,7 @@ import { firebaseConfig as config } from "./FIREBASE_CONFIG";
 import { FirebaseDataProvider } from "react-admin-firebase";
 import { getCurrentScenario } from "./currentScenario";
 import { describeError } from "./errors";
+import { withoutUndefined } from "./utils";
 
 class CompositeDataProvider {
   constructor(adminProvider, createScenarioProvider) {
@@ -25,6 +26,9 @@ class CompositeDataProvider {
     const { dataProvider } = this._getDataProviders().find((dp) =>
       dp.resources.includes(resource)
     );
+    // forms report untouched optional fields as undefined, which Firestore rejects
+    if (params && "data" in params)
+      params = { ...params, data: withoutUndefined(params.data) };
     // react-admin shows error.message to the author
     return dataProvider[name](resource, params).catch((e) => {
       console.error(`${name} ${resource} failed`, e);

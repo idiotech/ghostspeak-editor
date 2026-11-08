@@ -5,39 +5,7 @@ import {
   useNotify,
 } from "react-admin";
 import { useFormState } from "react-hook-form";
-
-// the label shown beside the input for this field path, read from the form
-// itself so every input is covered without a separate list of labels
-function findField(path) {
-  return (
-    document.querySelector(`[name="${path}"]`) ||
-    document.getElementsByClassName("ra-input-" + path)[0] ||
-    null
-  );
-}
-
-function labelOf(element) {
-  const control = element?.closest(".MuiFormControl-root");
-  const label = control?.querySelector("label, legend");
-  return label ? label.textContent.replace(/\s*\*\s*$/, "").trim() : "";
-}
-
-// "前一步 第1項的「文字」" for prevs.0.userReply, "「名稱」" for name
-function describePath(path) {
-  const element = findField(path);
-  const own = labelOf(element) || path;
-  const parts = path.split(".");
-  const index = parts.findIndex((p) => /^\d+$/.test(p));
-  if (index > 0) {
-    const listPath = parts.slice(0, index).join(".");
-    const list = document
-      .getElementsByClassName("ra-input-" + listPath)[0]
-      ?.querySelector(".RaArrayInput-label")
-      ?.textContent.trim();
-    if (list) return `${list} 第${Number(parts[index]) + 1}項的「${own}」`;
-  }
-  return `「${own}」`;
-}
+import { describePath, findField } from "./fieldLabels";
 
 // react-hook-form nests errors like the form data; a leaf has a message
 function flattenErrors(errors, prefix = "") {
