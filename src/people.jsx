@@ -43,7 +43,7 @@ export const PeopleList = () => {
         sort={{ field: "name", order: "ASC" }}
         filters={peopleFilters}
       >
-        <Datagrid rowClick={false} bulkActionButtons={false}>
+        <Datagrid rowClick="edit" bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="代號" source="id" />
           <TextField label="名字" source="name" />

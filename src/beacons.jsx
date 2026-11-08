@@ -45,7 +45,7 @@ export const BeaconList = () => {
   if (getCurrentScenario())
     return (
       <List title={<Title />} filters={beaconFilters}>
-        <Datagrid rowClick={false} bulkActionButtons={false}>
+        <Datagrid rowClick="edit" bulkActionButtons={false}>
           <TextField label="編號" source="rowIndex" />
           <TextField label="名稱" source="name" />
           <TextField label="Beacon ID" source="beaconId" />

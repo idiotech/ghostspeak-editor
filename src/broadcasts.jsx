@@ -67,6 +67,7 @@ import {
   BrokenReferencesMessage,
   findBrokenReferences,
 } from "./brokenReferences";
+import StopRowClick from "./StopRowClick";
 
 const Title = () => {
   const record = useRecordContext();
@@ -107,7 +108,7 @@ const ScenarioBroadcastList = () => {
           problems={problems}
           records={data.broadcasts}
         >
-          <Datagrid rowClick={false} bulkActionButtons={false}>
+          <Datagrid rowClick="edit" bulkActionButtons={false}>
             <TextField label="編號" source="rowIndex" />
             <NameWithWarning label="名稱" source="name" />
             <FunctionField label="條件" render={getConditionIcon} />
@@ -322,7 +323,7 @@ function SendButton(props) {
     }
   }
   return (
-    <>
+    <StopRowClick>
       <Button
         label="傳送"
         onClick={handleClick}
@@ -340,6 +341,6 @@ function SendButton(props) {
         confirm="確認傳送"
         cancel="取消"
       />
-    </>
+    </StopRowClick>
   );
 }
