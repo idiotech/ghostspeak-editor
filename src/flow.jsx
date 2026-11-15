@@ -26,7 +26,7 @@ const allActions = {
 };
 
 // how a step follows its previous action, from the step's prev entry
-function describeTrigger(entry, prevAction) {
+export function describeTrigger(entry, prevAction) {
   if (entry.conditionType === "TEXT") {
     if (entry.fallback || entry.userReply === "fallback:") return "任意回答";
     return entry.userReply ? `回答「${entry.userReply}」` : "文字回應（未設定）";

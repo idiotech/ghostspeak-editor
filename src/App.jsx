@@ -48,6 +48,7 @@ import { apiUrl } from "./serverCommon";
 
 import { i18nProvider } from "./i18n";
 import { UrbanBaker } from "./urbanbaker";
+import { StoryGraph } from "./storyGraph";
 
 const adminOptions = {
   logging: import.meta.env.DEV,
@@ -365,6 +366,11 @@ function App() {
         list={ActionList}
         create={ActionCreate}
         edit={ActionEdit}
+      />
+      <Resource
+        name="storyGraph"
+        options={{ label: "流程圖" }}
+        list={StoryGraph}
       />
       <Resource
         name="broadcasts"
