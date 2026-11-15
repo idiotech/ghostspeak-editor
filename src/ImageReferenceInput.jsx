@@ -4,6 +4,7 @@ import { required, TextInput, ImageInput, ImageField } from "react-admin";
 import QuickCreateButton from "./QuickCreateButton";
 import ReferenceWithQuickCreate from "./ReferenceWithQuickCreate";
 import { MyImageField } from "./MyImageField";
+import { validateImageFile } from "./uploads";
 
 const ImageQuickCreateButton = ({ source }) => (
   <QuickCreateButton
@@ -14,7 +15,11 @@ const ImageQuickCreateButton = ({ source }) => (
     fields={["name", "image"]}
   >
     <TextInput label="名稱" source="name" validate={required()} fullWidth />
-    <ImageInput label="圖片" source="image" validate={required()}>
+    <ImageInput
+      label="圖片"
+      source="image"
+      validate={[required(), validateImageFile]}
+    >
       <ImageField source="src" title="name" />
     </ImageInput>
   </QuickCreateButton>

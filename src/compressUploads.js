@@ -3,31 +3,33 @@
 // Players download these files over mobile data, where an uncompressed
 // recording is slow to arrive and can fail to play.
 import {
-  isWav,
   isBmp,
   withExtension,
-  shouldCompressImage,
+  willConvert,
+  saveProblem,
   fitWithin,
   hasTransparency,
-  tooLarge,
   megabyte,
   MAX_IMAGE_SIDE,
-  MAX_IMAGE_MB,
   MAX_SOUND_MB,
 } from "./uploads";
+import { imageSize, isAnimated } from "./imageInfo";
+import { fileSource } from "./wav";
 
-// the field holding the uploaded file, and the limit its result must meet
-const uploads = {
-  images: { field: "image", maxMegabytes: MAX_IMAGE_MB },
-  sounds: { field: "sound", maxMegabytes: MAX_SOUND_MB },
-};
+// the field of each resource that holds the uploaded file
+const fileFields = { images: "image", sounds: "sound" };
 
 const jpegQuality = 0.85;
+
+// enough of an image file to find its size and whether it is animated
+const sniffBytes = 512 * 1024;
 
 async function wavFileToMp3(file) {
   // the encoder is large and rarely needed, so it loads on first use
   const { wavToMp3 } = await import("./mp3");
-  const parts = await wavToMp3(await file.arrayBuffer());
+  const parts = await wavToMp3(fileSource(file), {
+    maxBytes: MAX_SOUND_MB * megabyte,
+  });
   return new File(parts, withExtension(file.name, "mp3"), {
     type: "audio/mpeg",
   });
@@ -35,17 +37,48 @@ async function wavFileToMp3(file) {
 
 // Redraws an image no larger than MAX_IMAGE_SIDE: as PNG when it has
 // see-through parts (map pins, logos), as JPEG otherwise. A BMP always comes
-// back converted; any other image only when the result is smaller.
+// back converted; any other image only when the result is smaller, and an
+// animation never, since redrawing would freeze it.
 async function compressImage(file) {
   const bmp = isBmp(file);
+  const start = new Uint8Array(await file.slice(0, sniffBytes).arrayBuffer());
+  if (!bmp && isAnimated(start)) return file;
+  const stored = imageSize(start);
+  const oversized =
+    !!stored && Math.max(stored.width, stored.height) > MAX_IMAGE_SIDE;
+  const options = { imageOrientation: "from-image" };
+  if (oversized) {
+    // Ask the browser to decode a large photo small, rather than hold all of
+    // it in memory first. Only the longer side is given, so the shape is kept
+    // whether or not the camera's rotation swaps the sides.
+    const target = fitWithin(stored.width, stored.height, MAX_IMAGE_SIDE);
+    if (stored.width >= stored.height) options.resizeWidth = target.width;
+    else options.resizeHeight = target.height;
+    options.resizeQuality = "high";
+  }
   let bitmap;
   try {
-    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    try {
+      bitmap = await createImageBitmap(file, options);
+    } catch (e) {
+      if (!oversized) throw e;
+      // some shapes cannot be decoded small (a strip a few pixels high);
+      // decode those whole
+      bitmap = await createImageBitmap(file, {
+        imageOrientation: "from-image",
+      });
+    }
   } catch (e) {
     if (bmp)
       throw new Error("無法轉換這張 BMP，請先轉成 JPG 或 PNG 再上傳", {
         cause: e,
       });
+    // too large for this device to open: players' phones would fare no better
+    if (oversized)
+      throw new Error(
+        `這張圖片太大（${stored.width}×${stored.height}），無法在瀏覽器裡壓縮，請先縮小到 ${MAX_IMAGE_SIDE} px 以內再上傳`,
+        { cause: e }
+      );
     // a format this browser cannot draw is uploaded as it is
     return file;
   }
@@ -85,27 +118,26 @@ async function compressImage(file) {
 }
 
 // The record with a newly picked WAV, BMP or large image replaced by its
-// compressed version; any other record comes back as it is. Throws a message for the
-// author when the file cannot be converted or is still too large.
+// compressed version; any other record comes back as it is. Throws a message
+// for the author when the file is the wrong kind, cannot be converted, or is
+// too large to upload.
 export async function compressRecordFiles(resource, data) {
-  const upload = uploads[resource];
-  const value = upload && data && data[upload.field];
+  const field = fileFields[resource];
+  const value = field && data && data[field];
   const file = value && value.rawFile;
   if (!file) return data;
-  const convert =
-    resource === "sounds" && isWav(file)
-      ? wavFileToMp3
-      : resource === "images" && shouldCompressImage(file)
-      ? compressImage
-      : null;
-  if (!convert) return data;
-  const compressed = await convert(file);
-  // the pick-time check let this file through unmeasured
-  if (compressed.size > upload.maxMegabytes * megabyte)
-    throw new Error(tooLarge(compressed.size, upload.maxMegabytes));
-  if (compressed === file) return data;
+  let result = file;
+  if (willConvert(resource, file))
+    result =
+      resource === "sounds"
+        ? await wavFileToMp3(file)
+        : await compressImage(file);
+  // the last check before upload; the forms' own checks can be bypassed
+  const problem = saveProblem(resource, result);
+  if (problem) throw new Error(problem);
+  if (result === file) return data;
   return {
     ...data,
-    [upload.field]: { ...value, rawFile: compressed, title: compressed.name },
+    [field]: { ...value, rawFile: result, title: result.name },
   };
 }
