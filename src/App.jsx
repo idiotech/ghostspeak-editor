@@ -42,6 +42,7 @@ import {
   getCurrentScenarioName,
 } from "./currentScenario";
 import { withoutDisplayFields } from "./utils";
+import { compressRecordFiles } from "./compressUploads";
 
 import { firebaseConfig as config } from "./FIREBASE_CONFIG";
 import { apiUrl } from "./serverCommon";
@@ -126,15 +127,20 @@ function createDataProvider(scenario) {
     dataProvider: {
       ...baseProvider,
       // getList below adds display-only fields to the records
-      create: (resource, params) =>
+      // a newly picked WAV or BMP is compressed before it is uploaded
+      create: async (resource, params) =>
         baseProvider.create(resource, {
           ...params,
-          data: withoutDisplayFields(params.data),
+          data: withoutDisplayFields(
+            await compressRecordFiles(resource, params.data)
+          ),
         }),
-      update: (resource, params) =>
+      update: async (resource, params) =>
         baseProvider.update(resource, {
           ...params,
-          data: withoutDisplayFields(params.data),
+          data: withoutDisplayFields(
+            await compressRecordFiles(resource, params.data)
+          ),
         }),
       getList: (resource, params) => {
         function getActionList() {

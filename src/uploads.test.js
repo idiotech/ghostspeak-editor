@@ -7,6 +7,9 @@ import {
   validateSoundFile,
   MAX_IMAGE_MB,
   MAX_SOUND_MB,
+  isWav,
+  isBmp,
+  withExtension,
 } from "./uploads.js";
 
 const picked = (type, megabytes) => ({
@@ -49,4 +52,34 @@ test("accepts a file whose type the browser could not tell", () => {
 test("leaves a file that is already uploaded alone", () => {
   assert.equal(validateImageFile({ src: "https://x/a.png", title: "a" }), undefined);
   assert.equal(validateImageFile(undefined), undefined);
+});
+
+// WAV and BMP are compressed when the record is saved, so their size on disk
+// says nothing about what gets uploaded
+test("lets a large WAV through, since it is compressed before upload", () => {
+  const wav = { rawFile: { name: "walk.wav", type: "audio/wav", size: 300 * 1024 * 1024 } };
+  assert.equal(validateSoundFile(wav), undefined);
+});
+
+test("lets a large BMP through, since it is compressed before upload", () => {
+  const bmp = { rawFile: { name: "map.bmp", type: "image/bmp", size: 30 * 1024 * 1024 } };
+  assert.equal(validateImageFile(bmp), undefined);
+});
+
+test("recognizes WAV by type or by name", () => {
+  assert.equal(isWav({ name: "a.mp3", type: "audio/x-wav" }), true);
+  assert.equal(isWav({ name: "A.WAV", type: "" }), true);
+  assert.equal(isWav({ name: "a.mp3", type: "audio/mpeg" }), false);
+});
+
+test("recognizes BMP by type or by name", () => {
+  assert.equal(isBmp({ name: "a", type: "image/bmp" }), true);
+  assert.equal(isBmp({ name: "A.BMP", type: "" }), true);
+  assert.equal(isBmp({ name: "a.png", type: "image/png" }), false);
+});
+
+test("swaps the extension of a file name", () => {
+  assert.equal(withExtension("第一站.WAV", "mp3"), "第一站.mp3");
+  assert.equal(withExtension("take.2.wav", "mp3"), "take.2.mp3");
+  assert.equal(withExtension("noextension", "jpg"), "noextension.jpg");
 });
