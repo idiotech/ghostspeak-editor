@@ -10,16 +10,17 @@ import {
 } from "react-admin";
 
 import { longInputSx } from "./actionCommon";
+import { parseLatLng } from "./latLng";
 
 const validateCoordinate = [required(), number()];
 
 export const CoordinateInput = () => {
   const { getValues, setValue } = useFormContext();
   function handleLatLngChange(event) {
-    const parts = event.target.value.replace(" ", "").split(",");
-    if (parts.length == 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-      setValue("lat", parts[0], { shouldDirty: true });
-      setValue("lon", parts[1], { shouldDirty: true });
+    const pair = parseLatLng(event.target.value);
+    if (pair) {
+      setValue("lat", pair.lat, { shouldDirty: true });
+      setValue("lon", pair.lon, { shouldDirty: true });
     }
   }
   const { lat, lon } = getValues();

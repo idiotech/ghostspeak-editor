@@ -24,6 +24,7 @@ import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 import { getDeleteButton } from "./deleteResource";
 import { useAllData } from "./serverCommon";
 import { useUsage, UsedByField } from "./usage";
+import { validateImageFile, MAX_IMAGE_MB } from "./uploads";
 
 const imageFilters = [
   <TextInput label="搜尋" source="name" alwaysOn key="name" />,
@@ -98,7 +99,12 @@ export const ImageCreate = () => (
   <Create title={<Title />}>
     <SimpleForm>
       <TextInput label="名稱" source="name" sx={longInputSx} />
-      <ImageInput label="圖片" source="image" validate={required()}>
+      <ImageInput
+        label="圖片"
+        source="image"
+        validate={[required(), validateImageFile]}
+        helperText={`上限 ${MAX_IMAGE_MB} MB`}
+      >
         <MyImageField source="src" title="name" />
       </ImageInput>
       <>(圖釘建議大小： 150 x 150)</>
@@ -111,7 +117,12 @@ export const ImageEdit = () => (
     <SimpleForm>
       <TextInput readOnly source="id" />
       <TextInput label="名稱" source="name" sx={longInputSx} />
-      <ImageInput label="圖片" source="image" validate={required()}>
+      <ImageInput
+        label="圖片"
+        source="image"
+        validate={[required(), validateImageFile]}
+        helperText={`上限 ${MAX_IMAGE_MB} MB`}
+      >
         <MyImageField source="src" title="name" />
       </ImageInput>
       <>(圖釘建議大小： 150 x 150)</>

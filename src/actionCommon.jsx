@@ -46,6 +46,15 @@ import SoundReferenceInput from "./SoundReferenceInput";
 import ImageReferenceInput from "./ImageReferenceInput";
 import { AlertPreview, DialogPreview, IntroPreview } from "./popupPreview";
 import { getCurrentScenarioName } from "./currentScenario";
+import {
+  getMainType,
+  getButtons,
+  getPrevDesc,
+  getPrevId,
+  hasDelay,
+} from "./actionType";
+
+export { getMainType, getButtons, getPrevDesc, getPrevId };
 
 const destinations = [
   { id: "NOTIFICATION", name: "通知列" },
@@ -139,19 +148,7 @@ const getConditionIcon = (record) => {
   const conds = record.prevs
     ? new Set(record.prevs.flatMap((p) => p.conditionType))
     : new Set();
-  const delay =
-    (record.hasSound && record.soundDelay) ||
-    (record.hasHangUp && record.hangUpDelay) ||
-    (record.hasIncomingCall && record.incomingCallDelay) ||
-    (record.hasMarker && record.markerDelay) ||
-    (record.hasmarkerremoval && record.markerremovaldelay) ||
-    (record.hasPopup && record.popupDelay) ||
-    (record.hasPopupDismissal && record.popupDismissalDelay) ||
-    (record.hasMapStyle && record.mapStyleDelay) ||
-    (record.hasIntroImage && record.introImageDelay) ||
-    (record.hasButtonStyle && record.buttonStyleDelay) ||
-    (record.hasGuideImage && record.guideImageDelay) ||
-    (record.hasGuideImageRemoval && record.hasGuideImageRemovalDelay);
+  const delay = hasDelay(record);
 
   return (
     <>
@@ -237,124 +234,9 @@ const beaconCondition = () => (
   </>
 );
 
-export function getMainType(action) {
-  function isDialog() {
-    const dests = action.destinations || [];
-    return (
-      action.hasPopup &&
-      (dests.includes("DIALER") ||
-        dests.allowTextReply ||
-        (action.choices && action.choices.length > 0))
-    );
-  }
-  return isDialog()
-    ? "dialog"
-    : action.hasSound && (action.soundType == "MAIN" || !action.soundType)
-    ? "sound"
-    : action.hasPopup
-    ? "popup"
-    : action.hasIncomingCall
-    ? "incoming-call"
-    : action.hasHangUp
-    ? "hang-up"
-    : action.hasMarker
-    ? "marker"
-    : action.hasMarkerRemoval
-    ? "marker-removal"
-    : action.hasMapStyle
-    ? "map-style"
-    : action.hasGuideImage
-    ? "guide-image"
-    : action.hasPopupDismissal
-    ? "popup-dismissal"
-    : action.hasIntroImage
-    ? "intro-image"
-    : action.hasGuideImageRemoval
-    ? "guide-image-removal"
-    : action.hasSound && action.soundType == "BACKGROUND"
-    ? "sound"
-    : action.hasButtonStyle
-    ? "button-style"
-    : // the remaining content types must match the action ids in getActions,
-    // otherwise the next step waits for an action that is never sent
-    action.hasPopupStyle
-    ? "popup-style"
-    : action.hasSilence
-    ? "silence"
-    : action.hasVariableUpdate
-    ? "variable-update"
-    : action.endgame
-    ? "endgame"
-    : action.hasSound
-    ? "sound"
-    : "button-style";
-}
-
-// the reply buttons the app shows for a popup: none when the popup is off
-// or needs no reply; empty entries are skipped
-export function getButtons(action) {
-  if (!action || !action.hasPopup || action.allowNoReply) return [];
-  return (action.choices || []).map((c) => c && c.choice).filter((c) => c);
-}
-
 // the create page's prefill for an action that follows `id`
 export function nextStepState(id) {
   return { record: { prevs: [{ prev: id, conditionType: "ALWAYS" }] } };
-}
-
-export function getPrevDesc(action) {
-  switch (getMainType(action)) {
-    case "dialog":
-      return "訊息出現";
-    case "sound":
-      return "聲音播完";
-    case "popup":
-      return "顯示完畢";
-    case "incoming-call":
-      return "電話接通";
-    case "hang-up":
-      return "電話掛斷";
-    case "marker":
-      return "圖釘出現";
-    case "marker-removal":
-      return "圖釘移除";
-    case "map-style":
-      return "地圖樣式改變";
-    case "guide-image":
-      return "指示圖出現";
-    case "guide-image-removal":
-      return "指示圖消失";
-    case "popup-dismissal":
-      return "圖文訊息關閉";
-    case "intro-image":
-      return "背景圖出現";
-    case "sound-background":
-      return "背景聲音播完";
-    case "button-style":
-      return "按鈕樣式改變";
-    case "popup-style":
-      return "圖文樣式改變";
-    case "silence":
-      return "聲音停止";
-    case "variable-update":
-      return "變數更新";
-    case "endgame":
-      return "活動結束";
-    default:
-      return "動作執行完畢";
-  }
-}
-
-export function getPrevId(action) {
-  const mainType = getMainType(action);
-  switch (mainType) {
-    case "dialog":
-      return `${action.id}-popup`;
-    case "sound-background":
-      return `${action.id}-sound`;
-    default:
-      return `${action.id}-${mainType}`;
-  }
 }
 
 export const modalImage = (
