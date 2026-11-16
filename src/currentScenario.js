@@ -14,6 +14,9 @@ export const scenarioResources = [
   "people",
 ];
 
+// every page that shows the current scenario, for the window title
+export const scenarioPages = [...scenarioResources, "storyGraph"];
+
 // Each tab keeps its own current scenario in memory, so switching scenario in
 // one tab never redirects another tab's reads and writes. localStorage only
 // remembers the last choice for the next page load.

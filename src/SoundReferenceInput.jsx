@@ -3,6 +3,7 @@ import { required, TextInput, FileInput, FileField } from "react-admin";
 
 import QuickCreateButton from "./QuickCreateButton";
 import ReferenceWithQuickCreate from "./ReferenceWithQuickCreate";
+import { validateSoundFile } from "./uploads";
 
 const SoundQuickCreateButton = ({ source }) => (
   <QuickCreateButton
@@ -13,7 +14,11 @@ const SoundQuickCreateButton = ({ source }) => (
     fields={["name", "sound"]}
   >
     <TextInput label="名稱" source="name" validate={required()} fullWidth />
-    <FileInput label="音檔" source="sound" validate={required()}>
+    <FileInput
+      label="音檔"
+      source="sound"
+      validate={[required(), validateSoundFile]}
+    >
       <FileField source="src" title="name" />
     </FileInput>
   </QuickCreateButton>

@@ -38,16 +38,20 @@ import CustomLoginPage from "./CustomLoginPage";
 import CompositeDataProvider from "./compositeDataProvider";
 import {
   scenarioResources,
+  scenarioPages,
   useCurrentScenario,
   getCurrentScenarioName,
 } from "./currentScenario";
 import { withoutDisplayFields } from "./utils";
+import { inListOrder } from "./actionTree";
+import { compressRecordFiles } from "./compressUploads";
 
 import { firebaseConfig as config } from "./FIREBASE_CONFIG";
 import { apiUrl } from "./serverCommon";
 
 import { i18nProvider } from "./i18n";
 import { UrbanBaker } from "./urbanbaker";
+import { StoryGraph } from "./storyGraph";
 
 const adminOptions = {
   logging: import.meta.env.DEV,
@@ -126,15 +130,20 @@ function createDataProvider(scenario) {
     dataProvider: {
       ...baseProvider,
       // getList below adds display-only fields to the records
-      create: (resource, params) =>
+      // a newly picked WAV or BMP is compressed before it is uploaded
+      create: async (resource, params) =>
         baseProvider.create(resource, {
           ...params,
-          data: withoutDisplayFields(params.data),
+          data: withoutDisplayFields(
+            await compressRecordFiles(resource, params.data)
+          ),
         }),
-      update: (resource, params) =>
+      update: async (resource, params) =>
         baseProvider.update(resource, {
           ...params,
-          data: withoutDisplayFields(params.data),
+          data: withoutDisplayFields(
+            await compressRecordFiles(resource, params.data)
+          ),
         }),
       getList: (resource, params) => {
         function getActionList() {
@@ -144,7 +153,8 @@ function createDataProvider(scenario) {
           return baseProvider.getList(resource, newParams).then((list) => {
             const actions = list.data;
 
-            const actionTree = getActionTree(actions);
+            // the same numbers whichever column the list is sorted by
+            const actionTree = getActionTree(inListOrder(actions));
             function getMembers(tree) {
               return tree.children.reduce(
                 (agg, c) => [...agg, ...getMembers(c)],
@@ -229,7 +239,7 @@ const DocumentTitle = () => {
   const resource = location.pathname.split("/")[1];
   const label = resources[resource]?.options?.label;
   const scenarioName =
-    scenarioId && scenarioResources.includes(resource)
+    scenarioId && scenarioPages.includes(resource)
       ? `《${getCurrentScenarioName()}》`
       : null;
   const title = [label, scenarioName, appTitle].filter(Boolean).join(" · ");
@@ -365,6 +375,11 @@ function App() {
         list={ActionList}
         create={ActionCreate}
         edit={ActionEdit}
+      />
+      <Resource
+        name="storyGraph"
+        options={{ label: "流程圖" }}
+        list={StoryGraph}
       />
       <Resource
         name="broadcasts"

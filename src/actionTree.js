@@ -7,6 +7,7 @@ export function getActionTree(actions) {
     // the initial action's previous steps are hidden in the form and may be stale
     if (a.prevs && !a.firstAction) {
       a.prevs.forEach((p) => {
+        if (!p) return;
         const orig = m.get(p.prev) || [];
         m.set(p.prev, [...orig, a]);
       });
@@ -38,4 +39,14 @@ export function getActionTree(actions) {
   }
   if (initial) return createTree(initial);
   else return null;
+}
+
+// The order the action list reads its records in. Building the tree from it
+// gives every action the same number on every page, however the records were
+// sorted when they were fetched.
+export function inListOrder(actions) {
+  const key = (a) => String(a.id).toLowerCase();
+  return [...actions].sort((a, b) =>
+    key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0
+  );
 }

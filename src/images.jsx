@@ -103,7 +103,7 @@ export const ImageCreate = () => (
         label="圖片"
         source="image"
         validate={[required(), validateImageFile]}
-        helperText={`上限 ${MAX_IMAGE_MB} MB`}
+        helperText={`上限 ${MAX_IMAGE_MB} MB；BMP 與超過 1 MB 的圖片會在儲存時自動壓縮`}
       >
         <MyImageField source="src" title="name" />
       </ImageInput>
@@ -121,7 +121,7 @@ export const ImageEdit = () => (
         label="圖片"
         source="image"
         validate={[required(), validateImageFile]}
-        helperText={`上限 ${MAX_IMAGE_MB} MB`}
+        helperText={`上限 ${MAX_IMAGE_MB} MB；BMP 與超過 1 MB 的圖片會在儲存時自動壓縮`}
       >
         <MyImageField source="src" title="name" />
       </ImageInput>
