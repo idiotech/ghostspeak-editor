@@ -38,10 +38,12 @@ import CustomLoginPage from "./CustomLoginPage";
 import CompositeDataProvider from "./compositeDataProvider";
 import {
   scenarioResources,
+  scenarioPages,
   useCurrentScenario,
   getCurrentScenarioName,
 } from "./currentScenario";
 import { withoutDisplayFields } from "./utils";
+import { inListOrder } from "./actionTree";
 
 import { firebaseConfig as config } from "./FIREBASE_CONFIG";
 import { apiUrl } from "./serverCommon";
@@ -145,7 +147,8 @@ function createDataProvider(scenario) {
           return baseProvider.getList(resource, newParams).then((list) => {
             const actions = list.data;
 
-            const actionTree = getActionTree(actions);
+            // the same numbers whichever column the list is sorted by
+            const actionTree = getActionTree(inListOrder(actions));
             function getMembers(tree) {
               return tree.children.reduce(
                 (agg, c) => [...agg, ...getMembers(c)],
@@ -230,7 +233,7 @@ const DocumentTitle = () => {
   const resource = location.pathname.split("/")[1];
   const label = resources[resource]?.options?.label;
   const scenarioName =
-    scenarioId && scenarioResources.includes(resource)
+    scenarioId && scenarioPages.includes(resource)
       ? `《${getCurrentScenarioName()}》`
       : null;
   const title = [label, scenarioName, appTitle].filter(Boolean).join(" · ");

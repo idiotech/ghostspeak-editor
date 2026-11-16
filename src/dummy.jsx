@@ -3,12 +3,13 @@ import { Datagrid, List, TextField, Button, Link } from "react-admin";
 
 const Title = () => <span>請先選擇目前劇本</span>;
 
-// shown by every list until a scenario has been chosen to work on
-const EmptyPage = () => (
+// shown by every per-scenario page until a scenario has been chosen to work
+// on; `shows` is what the page will then display
+export const EmptyPage = ({ shows = "內容" }) => (
   <div style={{ padding: 24 }}>
     <h2>還沒有選擇要編輯的劇本</h2>
     <p>
-      到劇本列表，在想編輯的劇本上按「設定為目前劇本」，這一頁就會顯示它的內容。
+      到劇本列表，在想編輯的劇本上按「設定為目前劇本」，這一頁就會顯示它的{shows}。
     </p>
     <Button
       component={Link}

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Title } from "react-admin";
+import { Title, useRefresh } from "react-admin";
 // react-router's Link takes a ref, which Tooltip and Chip need
 import { Link } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
@@ -16,22 +16,23 @@ import WarningIcon from "@mui/icons-material/Warning";
 import { useAllData } from "./serverCommon";
 import { useCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 import { useBrokenReferences } from "./brokenReferences";
-import { checkActions } from "./scenarioChecks";
+import { findContentProblems } from "./actionChecks";
+import { inListOrder } from "./actionTree";
+import { describeError } from "./errors";
+import { EmptyPage } from "./dummy";
+import {
+  nodeWidth,
+  nodeHeight,
+  columnGap,
+  rowGap,
+  margin,
+  left,
+  top,
+  routeEdges,
+} from "./storyGeometry";
 import { getContentIcon } from "./actionCommon";
 import { describeTrigger } from "./flow";
 import { layoutStory } from "./storyLayout";
-
-// the grid from layoutStory, in pixels
-const nodeWidth = 200;
-const nodeHeight = 58;
-// wide enough for a trigger such as 回答「好，我們出發」 between two columns
-const columnGap = 170;
-const rowGap = 20;
-const margin = 24;
-
-const left = (node) => margin + node.column * (nodeWidth + columnGap);
-const top = (node) => margin + node.row * (nodeHeight + rowGap);
-const middle = (node) => top(node) + nodeHeight / 2;
 
 const zoomSteps = [0.4, 0.6, 0.8, 1];
 const readableZoom = 0.8;
@@ -42,73 +43,33 @@ function describeEdge(edge, from) {
   return [...new Set(texts.filter(Boolean))].join("／");
 }
 
-const shorten = (text, length) =>
-  text.length > length ? text.slice(0, length - 1) + "…" : text;
+const EdgeLine = ({ route, colors }) => (
+  <path
+    d={route.path}
+    fill="none"
+    stroke={colors[route.edge.kind]}
+    strokeWidth={1.5}
+    strokeDasharray={route.edge.kind === "next" ? undefined : "6 4"}
+    markerEnd={`url(#arrow-${route.edge.kind})`}
+  />
+);
 
-function EdgeLine({ edge, from, to, colors }) {
-  const label = describeEdge(edge, from);
-  let path;
-  let labelAt;
-  let anchor = "end";
-  if (to.column === from.column) {
-    // within a column: out of the right side and back in, clear of the
-    // actions stacked between the two
-    const x = left(from) + nodeWidth;
-    const y1 = middle(from);
-    const y2 = middle(to);
-    const bulge = 46 + Math.min(40, Math.abs(y2 - y1) / 8);
-    path = `M ${x} ${y1} C ${x + bulge} ${y1}, ${x + bulge} ${y2}, ${x + 4} ${y2}`;
-    labelAt = [x + bulge * 0.75 + 6, (y1 + y2) / 2 + 4];
-    anchor = "start";
-  } else if (to.column < from.column) {
-    // leftwards: under both actions rather than across them
-    const x1 = left(from) + nodeWidth / 2;
-    const y1 = top(from) + nodeHeight;
-    const x2 = left(to) + nodeWidth / 2;
-    const y2 = top(to) + nodeHeight;
-    const dip = Math.max(y1, y2) + rowGap + 18;
-    path = `M ${x1} ${y1} C ${x1} ${dip}, ${x2} ${dip}, ${x2} ${y2 + 4}`;
-    labelAt = [(x1 + x2) / 2, dip - 8];
-    anchor = "middle";
-  } else {
-    const x1 = left(from) + nodeWidth;
-    const y1 = middle(from);
-    const x2 = left(to) - 4;
-    const y2 = middle(to);
-    const bend = Math.max(40, (x2 - x1) / 2);
-    path = `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
-    // beside the action it leads to, where lines from one step have fanned out
-    labelAt = [x2 - 8, y2 - 6];
-  }
-  const color = colors[edge.kind];
-  return (
-    <g>
-      <path
-        d={path}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeDasharray={edge.kind === "next" ? undefined : "6 4"}
-        markerEnd={`url(#arrow-${edge.kind})`}
-      />
-      {label && (
-        <text
-          x={labelAt[0]}
-          y={labelAt[1]}
-          textAnchor={anchor}
-          fontSize={12}
-          fill={colors.label}
-          stroke={colors.background}
-          strokeWidth={4}
-          paintOrder="stroke"
-        >
-          <title>{label}</title>
-          {shorten(label, 13)}
-        </text>
-      )}
-    </g>
-  );
-}
+const EdgeLabel = ({ label, colors }) => (
+  <text
+    x={label.x}
+    y={label.y}
+    textAnchor={label.anchor}
+    fontSize={12}
+    fill={colors.label}
+    stroke={colors.background}
+    strokeWidth={4}
+    paintOrder="stroke"
+    style={{ pointerEvents: "auto" }}
+  >
+    <title>{label.full}</title>
+    {label.text}
+  </text>
+);
 
 function ActionNode({ node, problems }) {
   const { action } = node;
@@ -212,18 +173,21 @@ const ScenarioStoryGraph = () => {
   const [zoom, setZoom] = React.useState(1);
   const viewport = React.useRef(null);
 
-  const { layout, problems } = React.useMemo(() => {
-    // the order the action list reads them in, so the numbers match
-    const actions = Object.values(data.actions).sort((a, b) =>
-      String(a.id).toLowerCase() < String(b.id).toLowerCase() ? -1 : 1
-    );
-    const checks = checkActions(data.actions);
+  const refresh = useRefresh();
+  // set once the author zooms or scrolls, so the view is theirs from then on
+  const moved = React.useRef(false);
+
+  const { layout, routes, problems } = React.useMemo(() => {
+    const all = Object.values(data.actions);
+    // the order the action list numbers them in
+    const layout = layoutStory(inListOrder(all));
     const problems = new Map(brokenReferences);
     const add = (action, text) =>
       problems.set(action.id, [...(problems.get(action.id) || []), text]);
-    checks.noContent.forEach((a) => add(a, "沒有任何內容"));
-    checks.noReply.forEach((a) => add(a, "圖文視窗沒有回應方式"));
-    return { layout: layoutStory(actions), problems };
+    const content = findContentProblems(all);
+    content.noContent.forEach((a) => add(a, "沒有任何內容"));
+    content.noReply.forEach((a) => add(a, "圖文視窗沒有回應方式"));
+    return { layout, routes: routeEdges(layout, describeEdge), problems };
   }, [data.actions, brokenReferences]);
 
   const colors = {
@@ -240,12 +204,14 @@ const ScenarioStoryGraph = () => {
   const height =
     2 * margin + layout.rows * (nodeHeight + rowGap) + rowGap + 18;
 
-  // When the story first appears, show as much of it as stays readable, with
-  // the initial action in view: in a wide story it sits far down the page.
+  // Until the author moves the view, show as much of the story as stays
+  // readable, with the initial action in view: in a wide story it sits far
+  // down the page. Runs again when the story changes size, as it does when
+  // fresh records replace cached ones.
   const startRow = layout.nodes[0]?.row;
   React.useLayoutEffect(() => {
     const view = viewport.current;
-    if (!data.loaded || !view || startRow === undefined) return;
+    if (!view || startRow === undefined || moved.current) return;
     // never start smaller than the names stay readable at; a long story
     // scrolls sideways instead
     const fit =
@@ -258,13 +224,32 @@ const ScenarioStoryGraph = () => {
     view.scrollTop =
       (margin + startRow * (nodeHeight + rowGap) + nodeHeight / 2) * fit -
       view.clientHeight / 2;
-    // only when a story loads, not on every edit or zoom
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.loaded, layout.hasStart]);
+  }, [data.actionsLoaded, startRow, width, height]);
 
-  if (!data.loaded) return <Box sx={{ p: 3 }}>載入中…</Box>;
+  const retry = (
+    <Button color="inherit" size="small" onClick={refresh}>
+      重試
+    </Button>
+  );
+  if (!data.actionsLoaded) {
+    if (data.error)
+      return (
+        <Alert severity="error" sx={{ m: 2 }} action={retry}>
+          讀不到這個劇本的動作：{describeError(data.error)}
+        </Alert>
+      );
+    return <Box sx={{ p: 3 }}>載入中…</Box>;
+  }
 
-  const byId = new Map(layout.nodes.map((n) => [n.id, n]));
+  const changeZoom = (step) => {
+    moved.current = true;
+    const at = zoomSteps.indexOf(zoom) + step;
+    setZoom(zoomSteps[Math.max(0, Math.min(zoomSteps.length - 1, at))]);
+  };
+  const markMoved = () => {
+    moved.current = true;
+  };
+
   const flagged = layout.nodes.filter((n) => problems.has(n.id)).length;
 
   return (
@@ -277,23 +262,22 @@ const ScenarioStoryGraph = () => {
             `，${layout.unreachable.length} 個從開頭到不了`}
         </span>
         <ButtonGroup size="small" sx={{ marginLeft: "auto" }}>
-          <Button
-            onClick={() => setZoom(zoomSteps[Math.max(0, zoomSteps.indexOf(zoom) - 1)])}
-            disabled={zoom === zoomSteps[0]}
-          >
+          <Button onClick={() => changeZoom(-1)} disabled={zoom === zoomSteps[0]}>
             縮小
           </Button>
           <Button disabled>{Math.round(zoom * 100)}%</Button>
-          <Button
-            onClick={() =>
-              setZoom(zoomSteps[Math.min(zoomSteps.length - 1, zoomSteps.indexOf(zoom) + 1)])
-            }
-            disabled={zoom === 1}
-          >
+          <Button onClick={() => changeZoom(1)} disabled={zoom === 1}>
             放大
           </Button>
         </ButtonGroup>
       </Box>
+
+      {data.error && (
+        <Alert severity="warning" action={retry}>
+          部分資料讀不到（{describeError(data.error)}
+          ），所以無法檢查動作參照的聲音、圖片或地點是否還在。
+        </Alert>
+      )}
 
       {!layout.hasStart ? (
         <Alert severity="warning">
@@ -306,6 +290,9 @@ const ScenarioStoryGraph = () => {
           <Legend colors={colors} />
           <Box
             ref={viewport}
+            onWheel={markMoved}
+            onPointerDown={markMoved}
+            onKeyDown={markMoved}
             sx={{
               overflow: "auto",
               maxHeight: "calc(100vh - 230px)",
@@ -346,12 +333,10 @@ const ScenarioStoryGraph = () => {
                       </marker>
                     ))}
                   </defs>
-                  {layout.edges.map((edge) => (
+                  {routes.map((route) => (
                     <EdgeLine
-                      key={`${edge.from}-${edge.to}`}
-                      edge={edge}
-                      from={byId.get(edge.from)}
-                      to={byId.get(edge.to)}
+                      key={`${route.edge.from}\n${route.edge.to}`}
+                      route={route}
                       colors={colors}
                     />
                   ))}
@@ -363,6 +348,28 @@ const ScenarioStoryGraph = () => {
                     problems={problems.get(node.id)}
                   />
                 ))}
+                {/* over the actions, so no label is ever hidden by one */}
+                <svg
+                  width={width}
+                  height={height}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    pointerEvents: "none",
+                  }}
+                >
+                  {routes.map(
+                    (route) =>
+                      route.label && (
+                        <EdgeLabel
+                          key={`${route.edge.from}\n${route.edge.to}`}
+                          label={route.label}
+                          colors={colors}
+                        />
+                      )
+                  )}
+                </svg>
               </div>
             </div>
           </Box>
@@ -405,15 +412,7 @@ export const StoryGraph = () => {
       {scenario ? (
         <ScenarioStoryGraph />
       ) : (
-        <Box sx={{ p: 3 }}>
-          <h2>還沒有選擇要編輯的劇本</h2>
-          <p>
-            到劇本列表，在想編輯的劇本上按「設定為目前劇本」，這一頁就會顯示它的流程。
-          </p>
-          <Button component={Link} to="/scenarios" variant="contained">
-            前往劇本列表
-          </Button>
-        </Box>
+        <EmptyPage shows="流程" />
       )}
     </>
   );
