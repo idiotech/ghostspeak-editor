@@ -1,5 +1,4 @@
 import * as React from "react";
-
 import { checkActions } from "./actionChecks";
 
 export { checkActions };
@@ -34,6 +33,13 @@ export const PublishChecks = ({ actions }) => {
       <li key="noReply">
         沒有回應方式的圖文視窗 {c.noReply.length} 個（不會自動關閉）：
         <Names actions={c.noReply} />
+      </li>
+    ),
+    c.conflictingConditions.length > 0 && (
+      <li key="conflictingConditions">
+        前一步的觸發條件不一致的動作 {c.conflictingConditions.length}{" "}
+        個（只有第一個前一步的條件會生效，其他的地點或 Beacon 條件會被忽略）：
+        <Names actions={c.conflictingConditions} />
       </li>
     ),
   ].filter(Boolean);

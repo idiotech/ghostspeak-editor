@@ -1,5 +1,6 @@
 // Mistakes in a story that the reference check cannot see. Kept free of
 // React so it can be tested with node --test.
+import { hasConflictingConditions } from "./publishExport.js";
 
 // an action with none of these does nothing when it runs
 const contentFlags = [
@@ -36,7 +37,8 @@ export function findContentProblems(actions) {
   };
 }
 
-// the content problems, plus the actions the player can never reach
+// the content problems, the actions the player can never reach, and the
+// actions whose previous steps ask for different trigger conditions
 export function checkActions(actionMap) {
   const all = Object.values(actionMap || {});
   const first = all.find((a) => a.firstAction);
@@ -62,5 +64,6 @@ export function checkActions(actionMap) {
     total: all.length,
     unreachable: all.filter((a) => !reachable.has(a.id)),
     ...findContentProblems(all),
+    conflictingConditions: all.filter(hasConflictingConditions),
   };
 }

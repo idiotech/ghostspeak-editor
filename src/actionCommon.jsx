@@ -47,6 +47,11 @@ import ImageReferenceInput from "./ImageReferenceInput";
 import { AlertPreview, DialogPreview, IntroPreview } from "./popupPreview";
 import { getCurrentScenarioName } from "./currentScenario";
 import {
+  buildCondition,
+  DEFAULT_GEOFENCE_MODE,
+  LEGACY_GEOFENCE_RADIUS,
+} from "./publishExport";
+import {
   getMainType,
   getButtons,
   getPrevDesc,
@@ -54,7 +59,7 @@ import {
   hasDelay,
 } from "./actionType";
 
-export { getMainType, getButtons, getPrevDesc, getPrevId };
+export { getMainType, getButtons, getPrevDesc, getPrevId, buildCondition };
 
 const destinations = [
   { id: "NOTIFICATION", name: "通知列" },
@@ -93,29 +98,9 @@ const geofenceModes = [
   { id: "ARRIVE", name: "到達中心點" },
   { id: "SIGHT", name: "進入範圍即觸發（遠望目標）" },
 ];
-const DEFAULT_GEOFENCE_MODE = "ARRIVE";
 // a radius players enter reliably with 10 to 20 m of GPS error, for new fences
 const DEFAULT_GEOFENCE_RADIUS = 30;
-// what a fence saved without a radius has always been published with
-const LEGACY_GEOFENCE_RADIUS = 14;
 
-// the trigger condition the server expects, from an action's previous-step
-// entry or from a broadcast itself; shared so both publish the same shape
-export function buildCondition(node, { locations, beacons }) {
-  if (!node.conditionType || node.conditionType === "ALWAYS")
-    return { type: "ALWAYS" };
-  return {
-    type: node.conditionType,
-    beaconId: (node.beacon && beacons[node.beacon]?.beaconId) || null,
-    threshold: node.beaconThreshold,
-    mode:
-      node.conditionType === "GEOFENCE"
-        ? node.geofenceMode || DEFAULT_GEOFENCE_MODE
-        : node.beaconType,
-    location: node.geofenceCenter ? locations[node.geofenceCenter] : null,
-    radius: node.geofenceRadius || LEGACY_GEOFENCE_RADIUS,
-  };
-}
 const callTypes = [
   { id: "CONNECTING", name: "未接通" },
   { id: "CONNECTED", name: "接通" },

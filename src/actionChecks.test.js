@@ -65,3 +65,19 @@ test("checkActions reports the content problems too", () => {
   assert.deepEqual(ids(checks.noContent), ["start"]);
   assert.deepEqual(checks.noReply, []);
 });
+
+test("an action whose previous steps ask for different fences is reported", () => {
+  const fence = (prev, geofenceCenter) => ({
+    prev,
+    conditionType: "GEOFENCE",
+    geofenceCenter,
+  });
+  const checks = checkActions(
+    byId([
+      { id: "start", firstAction: true },
+      { id: "a", prevs: [{ prev: "start", conditionType: "ALWAYS" }] },
+      { id: "mixed", prevs: [fence("start", "park"), fence("a", "temple")] },
+    ])
+  );
+  assert.deepEqual(ids(checks.conflictingConditions), ["mixed"]);
+});
