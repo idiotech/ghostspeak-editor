@@ -93,7 +93,7 @@ export const SoundCreate = () => (
         label="音檔"
         source="sound"
         validate={[required(), validateSoundFile]}
-        helperText={`上限 ${MAX_SOUND_MB} MB`}
+        helperText={`上限 ${MAX_SOUND_MB} MB；WAV 會在儲存時自動轉成 MP3，長檔案需要等一下`}
       >
         <FileField source="src" title="name" />
       </FileInput>
@@ -110,7 +110,7 @@ export const SoundEdit = () => (
         label="音檔"
         source="sound"
         validate={[required(), validateSoundFile]}
-        helperText={`上限 ${MAX_SOUND_MB} MB`}
+        helperText={`上限 ${MAX_SOUND_MB} MB；WAV 會在儲存時自動轉成 MP3，長檔案需要等一下`}
       >
         <FileField source="src" title="name" />
       </FileInput>
