@@ -37,7 +37,7 @@ function useAppFonts() {
 }
 
 // the phone's screen, edge to edge under a transparent status bar
-function Phone({ background, children }) {
+function Phone({ background, children, bar = statusBar }) {
   useAppFonts();
   return (
     <div
@@ -56,13 +56,15 @@ function Phone({ background, children }) {
       }}
     >
       {background}
-      {statusBar}
+      {bar}
       {children}
     </div>
   );
 }
 
-function StatusBar() {
+// dark: the icons a light theme asks for (isAppearanceLightStatusBars)
+function StatusBar({ dark = false }) {
+  const ink = dark ? "#1C1C1E" : "white";
   return (
     <div
       style={{
@@ -76,8 +78,8 @@ function StatusBar() {
         alignItems: "center",
         justifyContent: "space-between",
         fontSize: 13,
-        color: "white",
-        textShadow: "0 0 2px rgba(0, 0, 0, 0.5)",
+        color: ink,
+        textShadow: dark ? "none" : "0 0 2px rgba(0, 0, 0, 0.5)",
       }}
     >
       <span>12:00</span>
@@ -86,7 +88,7 @@ function StatusBar() {
           style={{
             width: 14,
             height: 10,
-            background: "white",
+            background: ink,
             clipPath: "polygon(0 100%, 100% 0, 100% 100%)",
           }}
         />
@@ -95,10 +97,9 @@ function StatusBar() {
             boxSizing: "border-box",
             width: 20,
             height: 10,
-            border: "1px solid white",
+            border: `1px solid ${ink}`,
             borderRadius: 2,
-            background:
-              "linear-gradient(to right, white 0 70%, transparent 70%) no-repeat",
+            background: `linear-gradient(to right, ${ink} 0 70%, transparent 70%) no-repeat`,
             backgroundOrigin: "content-box",
             padding: 1,
           }}
@@ -258,6 +259,7 @@ function IntroBackground() {
 // the static parts of the screens, built once so that typing in the form
 // only re-renders the panels
 const statusBar = <StatusBar />;
+const darkIconStatusBar = <StatusBar dark />;
 const mapBackground = <MapBackground />;
 const introBackground = <IntroBackground />;
 
@@ -781,4 +783,133 @@ export function IntroPreview({ text, choices, allowTextReply, scenarioName }) {
       </div>
     </Phone>
   );
+}
+
+// the app's intro colours per theme (IntroTheme on the client)
+const lightText = "#1C1C1E";
+const lightWordmark = "#1E3A2E";
+const primary = "#42928D"; // the design's button fill
+
+/** The story's intro as its INTRO_IMAGE action paints it: its background and logo (or the app's wordmark),
+ *  its theme's status-bar icons and text, and a button in its accent. */
+export function IntroScreenPreview({
+  backgroundSrc,
+  logoSrc,
+  theme,
+  textColor,
+  accentColor,
+  scenarioName,
+  text = "故事的開場白會顯示在這裡。",
+  buttonLabel = "開始",
+}) {
+  const light = (theme || "").toLowerCase() === "light";
+  const storyText = isHexColor(textColor) ? textColor : null;
+  const ink = storyText || (light ? lightText : textPrimary);
+  const wordmarkColor = light ? storyText || lightWordmark : "white";
+  const accent = isHexColor(accentColor) ? accentColor : primary;
+  const background = (
+    <>
+      {backgroundSrc ? (
+        <img
+          src={backgroundSrc}
+          alt=""
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: light ? "#EFE3CF" : "#000",
+          }}
+        />
+      )}
+      {logoSrc ? (
+        <img
+          src={logoSrc}
+          alt=""
+          style={{
+            position: "absolute",
+            width: 274 * 0.62,
+            height: 126 * 0.62,
+            objectFit: "contain",
+            left: (phoneWidth - 274 * 0.62) / 2,
+            top: 78 * 0.62 + 24,
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: phoneHeight * 0.26,
+            textAlign: "center",
+            fontSize: 34,
+            fontWeight: 600,
+            lineHeight: "40px",
+            letterSpacing: 2,
+            color: wordmarkColor,
+          }}
+        >
+          URBAN
+          <br />
+          BAKER
+        </div>
+      )}
+    </>
+  );
+  return (
+    <Phone background={background} bar={light ? darkIconStatusBar : statusBar}>
+      <div
+        style={{
+          position: "absolute",
+          top: phoneHeight * 0.55,
+          left: 28,
+          right: 28,
+          color: ink,
+        }}
+      >
+        <div style={{ fontSize: 20, lineHeight: "26px", textAlign: "center" }}>
+          {scenarioName}
+        </div>
+        <div
+          style={{
+            margin: "16px 24px 0",
+            fontSize: 16,
+            lineHeight: "25px",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {text}
+        </div>
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: 44,
+          right: 44,
+          bottom: 40,
+          ...bigButton,
+          background: accent,
+          color: "white",
+          textAlign: "center",
+        }}
+      >
+        {buttonLabel}
+      </div>
+    </Phone>
+  );
+}
+
+function isHexColor(value) {
+  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value.trim());
 }

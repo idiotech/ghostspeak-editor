@@ -311,6 +311,8 @@ export const getActions = (currentNode, data, condition) => {
             : null,
           logoUrl: introLogoUrl,
           textColor: currentNode.introTextColor || null,
+          theme: currentNode.introTheme || null,
+          accentColor: currentNode.introAccentColor || null,
           mapLogoUrl: currentNode.mapLogo ? mapLogo.image.src : null,
           logoMarginTop: currentNode.introLogoMarginTop,
           logoWidth: currentNode.introLogoWidth,

@@ -44,7 +44,12 @@ import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 import LocationReferenceInput from "./LocationReferenceInput";
 import SoundReferenceInput from "./SoundReferenceInput";
 import ImageReferenceInput from "./ImageReferenceInput";
-import { AlertPreview, DialogPreview, IntroPreview } from "./popupPreview";
+import {
+  AlertPreview,
+  DialogPreview,
+  IntroPreview,
+  IntroScreenPreview,
+} from "./popupPreview";
 import { getCurrentScenarioName } from "./currentScenario";
 import {
   buildCondition,
@@ -925,7 +930,55 @@ const mapStyleInput = (formData, enableDelay) => (
   </>
 );
 
+// the themes a story can give its intro screen (INTRO_IMAGE.theme)
+const introThemes = [
+  { id: "dark", name: "深色（預設）" },
+  { id: "light", name: "淺色" },
+];
+
+// the form for INTRO_IMAGE, with a live picture of the intro it describes
+const IntroImageInput = ({ formData, enableDelay }) => {
+  const { data: background } = useGetOne(
+    "images",
+    { id: formData.introBackground },
+    { enabled: !!formData.introBackground }
+  );
+  const { data: logo } = useGetOne(
+    "images",
+    { id: formData.introLogo },
+    { enabled: !!formData.introLogo && !formData.noIntroLogo }
+  );
+  const preview = (
+    <IntroScreenPreview
+      backgroundSrc={formData.introBackground && background?.image?.src}
+      logoSrc={!formData.noIntroLogo && formData.introLogo && logo?.image?.src}
+      theme={formData.introTheme}
+      textColor={formData.introTextColor}
+      accentColor={formData.introAccentColor}
+      scenarioName={getCurrentScenarioName()}
+    />
+  );
+  return (
+    <table border="0">
+      <tr>
+        <td valign="top">{introImageFields(formData, enableDelay)}</td>
+        <td valign="top" style={{ paddingLeft: 24 }}>
+          <h4>
+            <u>示意圖</u>
+          </h4>
+          依Android版佈局繪製；深色主題為App預設，淺色主題會把狀態列圖示、文字改為深色，按鈕用強調色。
+          <div style={{ marginTop: 8 }}>{preview}</div>
+        </td>
+      </tr>
+    </table>
+  );
+};
+
 const introImageInput = (formData, enableDelay) => (
+  <IntroImageInput formData={formData} enableDelay={enableDelay} />
+);
+
+const introImageFields = (formData, enableDelay) => (
   <>
     <ImageReferenceInput
       label="背景圖"
@@ -975,7 +1028,23 @@ const introImageInput = (formData, enableDelay) => (
         )}
       </>
     )}
-    <ColorInput label="首頁文字顏色" source="introTextColor" />
+    <SelectInput
+      label="首頁主題"
+      source="introTheme"
+      choices={introThemes}
+      defaultValue="dark"
+      helperText="淺色：狀態列圖示與文字改為深色，適合淺色背景圖"
+    />
+    <ColorInput
+      label="首頁文字顏色"
+      source="introTextColor"
+      helperText="留白則依主題：深色主題白字、淺色主題深字"
+    />
+    <ColorInput
+      label="首頁按鈕顏色"
+      source="introAccentColor"
+      helperText="留白則用App的按鈕色；「按鈕顏色」動作設定時以它為準"
+    />
     <ImageReferenceInput
       label="地圖頁logo"
       helperText="建議比例: 寬62 / 高100"
@@ -984,11 +1053,6 @@ const introImageInput = (formData, enableDelay) => (
       sort={{ field: "lastupdate", order: "DESC" }}
       perPage={1000}
     />
-    <br />
-    {modalButton(
-      "https://storage.googleapis.com/daqiaotou/editor/image/intro-style.jpg",
-      "示意圖"
-    )}
     <br />
     {enableDelay && addDelay(formData, "introImage")}
   </>
