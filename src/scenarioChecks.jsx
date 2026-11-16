@@ -1,4 +1,5 @@
 import * as React from "react";
+import { hasConflictingConditions } from "./publishExport";
 
 // an action with none of these does nothing when it runs
 const contentFlags = [
@@ -21,7 +22,8 @@ const contentFlags = [
 ];
 
 // Mistakes the reference check cannot see: actions the player can never
-// reach, actions that do nothing, and blocking popups with no way to answer.
+// reach, actions that do nothing, blocking popups with no way to answer, and
+// actions whose previous steps ask for different location conditions.
 export function checkActions(actionMap) {
   const all = Object.values(actionMap || {});
   const first = all.find((a) => a.firstAction);
@@ -52,6 +54,7 @@ export function checkActions(actionMap) {
         !a.allowTextReply &&
         !a.allowNoReply
     ),
+    conflictingConditions: all.filter(hasConflictingConditions),
   };
 }
 
@@ -85,6 +88,13 @@ export const PublishChecks = ({ actions }) => {
       <li key="noReply">
         沒有回應方式的圖文視窗 {c.noReply.length} 個（不會自動關閉）：
         <Names actions={c.noReply} />
+      </li>
+    ),
+    c.conflictingConditions.length > 0 && (
+      <li key="conflictingConditions">
+        前一步的觸發條件不一致的動作 {c.conflictingConditions.length}{" "}
+        個（只有第一個前一步的條件會生效，其他的地點或 Beacon 條件會被忽略）：
+        <Names actions={c.conflictingConditions} />
       </li>
     ),
   ].filter(Boolean);

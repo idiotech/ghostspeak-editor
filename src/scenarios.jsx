@@ -44,12 +44,9 @@ import { RichTextInput } from "ra-input-rich-text";
 
 import { getRecordField, withoutDisplayFields } from "./utils";
 
-import { useAllData, getActions, apiUrl } from "./serverCommon";
-import {
-  getPrevId,
-  buildCondition,
-  LEGACY_GEOFENCE_RADIUS,
-} from "./actionCommon";
+import { useAllData, apiUrl } from "./serverCommon";
+import { LEGACY_GEOFENCE_RADIUS } from "./actionCommon";
+import { buildTemplate, getCondition } from "./publishExport";
 import {
   describeBrokenReferences,
   BrokenReferencesMessage,
@@ -105,79 +102,6 @@ function UseButton(props) {
   );
 }
 
-function getTriggers(currentNode, parents) {
-  if (currentNode.firstAction) {
-    return [
-      {
-        id: "",
-        actionId: null,
-        receiver: "ghost",
-        sender: "?u",
-        payload: {
-          type: "JOIN",
-        },
-        scenarioId: "",
-      },
-    ];
-  } else {
-    const ret = parents.flatMap((p) => getTriggerList(currentNode, p));
-    return ret.filter((value, index) => {
-      const _value = JSON.stringify(value);
-      return (
-        index ===
-        ret.findIndex((obj) => {
-          return JSON.stringify(obj) === _value;
-        })
-      );
-    });
-  }
-}
-
-function getTriggerList(currentNode, parentNode) {
-  return currentNode.prevs
-    .filter((p) => p.prev == parentNode.id)
-    .map((condition) => {
-      if (!condition) {
-        console.error(
-          "bad parent",
-          currentNode.name,
-          parentNode.name,
-          parentNode.id,
-          currentNode.prevs.map((p) => p.prev)
-        );
-      }
-      const actionId =
-        condition.conditionType === "TEXT"
-          ? parentNode.id + "-popup"
-          : getPrevId(parentNode);
-
-      return {
-        id: "",
-        actionId: actionId,
-        receiver: parentNode.sender || "ghost",
-        sender: "?u",
-        payload: {
-          type: condition.conditionType === "TEXT" ? "TEXT" : "END",
-          text: condition.fallback ? "fallback:" : condition.userReply,
-          asVariable: condition.asVariable,
-        },
-        scenarioId: "",
-      };
-    });
-}
-
-// TODO: system hole
-// only one condition holds
-function getCondition(currentNode, data) {
-  // the initial action has no trigger; a previous step's TEXT reply is a
-  // trigger message, not a condition
-  const active =
-    !currentNode.firstAction &&
-    currentNode.prevs &&
-    currentNode.prevs.find((p) => p && p.conditionType != "TEXT" && p.conditionType);
-  return buildCondition(active || {}, data);
-}
-
 function PublishButton(props) {
   const record = useRecordContext(props);
   const disabled = !useIsCurrentScenario(record);
@@ -186,37 +110,8 @@ function PublishButton(props) {
   const handleClick = () => setOpen(true);
   const handleDialogClose = () => setOpen(false);
   const data = useAllData();
-  const { actions, variables, images } = data;
+  const { actions } = data;
   const [open, setOpen] = useState(false);
-  const people = Object.values(data.people);
-  function getFriends(node, condition) {
-    return people.map((f) => {
-      let portrait = null;
-      if (f.userPortrait) {
-        portrait = images[f.userPortrait]?.image?.src;
-      }
-      return {
-        id: xid.next() + "-friend",
-        receiver: "?u",
-        sender: "ghost",
-        content: {
-          task: {
-            type: "FRIEND",
-            id: f.id,
-            icon: portrait,
-            name: f.name,
-          },
-          condition: condition,
-        },
-        description: node.name,
-        session: {
-          scenario: "",
-          chapter: "",
-        },
-      };
-    });
-  }
-
   async function handleConfirm() {
     setOpen(false);
     setLoading(true);
@@ -245,82 +140,9 @@ function PublishButton(props) {
       return;
     }
 
-    function getNode(tree) {
-      const parents = tree.node.prevs
-        ? tree.node.prevs.map((p) => actions[p.prev])
-        : [];
-      const condition = getCondition(tree.node, data);
-      const serverActions = getActions(tree.node, data, condition);
-      const isFirst = tree.node.firstAction;
-      if (isFirst) {
-        getFriends(tree.node, condition).forEach((f) => serverActions.push(f));
-      }
-      return {
-        name: isFirst ? "initial" : tree.node.id,
-        children: tree.node.children || [],
-        exclusiveWith: (tree.node.exclusiveWith || []).filter((e) => e),
-        triggers: getTriggers(tree.node, parents),
-        performances: serverActions.map((a) => ({
-          action: a,
-          delay: a.delay === 0 || a.delay ? a.delay : 0,
-          time: a.time,
-        })),
-        preconditions: tree.node.preconditions?.map((p) => ({
-          name: variables[p.variable]?.name,
-          comparison: p.comparison,
-          value: p.value,
-        })),
-      };
-    }
-
-    function getNodes(tree) {
-      return tree.children.reduce(
-        (agg, c) => [...agg, ...getNodes(c)],
-        [getNode(tree)]
-      );
-    }
     try {
       const scenarioId = getRecordField(record, "id");
-      const template = getNodes(actionTree);
-      const initialNode = template[0];
-      if (initialNode) {
-        const tasks = initialNode.performances.map(
-          (p) => p.action.content.task
-        );
-        const validInitial = tasks.find(
-          (t) =>
-            t.type === "MARKER" ||
-            (t.type === "POPUP" && t.destinations.indexOf("INTRO") >= 0) ||
-            t.type === "INTRO_IMAGE"
-        );
-        if (!validInitial) {
-          initialNode.performances.push({
-            action: {
-              id: "shadow-intro",
-              receiver: "?u",
-              sender: "ghost",
-              content: {
-                task: {
-                  type: "POPUP",
-                  destinations: ["INTRO"],
-                  text: "",
-                  allowTextReply: false,
-                },
-                condition: {
-                  type: "ALWAYS",
-                },
-              },
-              delay: 0,
-              time: null,
-              description: "首頁",
-              session: {
-                scenario: "",
-                chapter: "",
-              },
-            },
-          });
-        }
-      }
+      const template = buildTemplate(actionTree, data, xid.next);
       // const urlString = `http://localhost:8080/v1/scenario/graphscript/${getRecordField(
       const urlString = `${apiUrl}/v1/scenario/graphscript/${scenarioId}`;
       const url = new URL(urlString);
