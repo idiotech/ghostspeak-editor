@@ -50,7 +50,7 @@ import { i18nProvider } from "./i18n";
 import { UrbanBaker } from "./urbanbaker";
 
 const adminOptions = {
-  logging: true,
+  logging: import.meta.env.DEV,
   rootRef: "ghostspeak_editor/admin",
 };
 
@@ -118,7 +118,7 @@ function createAdminProvider() {
 
 function createDataProvider(scenario) {
   const scenarioOtions = {
-    logging: true,
+    logging: import.meta.env.DEV,
     rootRef: "ghostspeak_editor/" + scenario,
   };
   const baseProvider = FirebaseDataProvider(config, scenarioOtions);

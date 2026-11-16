@@ -64,7 +64,7 @@ class CompositeDataProvider {
           };
           const scenario = r.data.id;
           const scenarioOtions = {
-            logging: true,
+            logging: import.meta.env.DEV,
             rootRef: "ghostspeak_editor/" + scenario,
           };
           const tempProvider = FirebaseDataProvider(config, scenarioOtions);

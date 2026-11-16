@@ -32,6 +32,7 @@ import HourglassBottomIcon from "@mui/icons-material/HourglassEmpty";
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
 import { apiUrl } from "./serverCommon";
+import { hasDelay } from "./actionType";
 
 const conditionTypes = [
   { id: "ALWAYS", name: "立刻" },
@@ -218,15 +219,7 @@ function getCondition(currentNode, data) {
 }
 
 const getConditionIcon = (record) => {
-  const delay =
-    (record.hasSound && record.soundDelay) ||
-    (record.hasHangUp && record.hangUpDelay) ||
-    (record.hasIncomingCall && record.incomingCallDelay) ||
-    (record.hasMarker && record.markerDelay) ||
-    (record.hasMarkerRemoval && record.markerRemovalDelay) ||
-    (record.hasPopup && record.popupDelay) ||
-    (record.hasPopupDismissal && record.popupDismissalDelay) ||
-    (record.hasMapStyle && record.mapStyleDelay);
+  const delay = hasDelay(record);
 
   return (
     <>

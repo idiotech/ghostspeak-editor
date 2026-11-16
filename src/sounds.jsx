@@ -20,6 +20,7 @@ import { longInputSx } from "./inputWidth";
 import { getDeleteButton } from "./deleteResource";
 import { useAllData } from "./serverCommon";
 import { useUsage, UsedByField } from "./usage";
+import { validateSoundFile, MAX_SOUND_MB } from "./uploads";
 
 import { DummyList } from "./dummy";
 import { getCurrentScenario, getCurrentScenarioName } from "./currentScenario";
@@ -88,7 +89,12 @@ export const SoundCreate = () => (
   <Create title={<Title />}>
     <SimpleForm>
       <TextInput label="名稱" source="name" sx={longInputSx} />
-      <FileInput label="音檔" source="sound" validate={required()}>
+      <FileInput
+        label="音檔"
+        source="sound"
+        validate={[required(), validateSoundFile]}
+        helperText={`上限 ${MAX_SOUND_MB} MB`}
+      >
         <FileField source="src" title="name" />
       </FileInput>
     </SimpleForm>
@@ -100,7 +106,12 @@ export const SoundEdit = () => (
     <SimpleForm>
       <TextInput readOnly source="id" />
       <TextInput label="名稱" source="name" sx={longInputSx} />
-      <FileInput label="音檔" source="sound" validate={required()}>
+      <FileInput
+        label="音檔"
+        source="sound"
+        validate={[required(), validateSoundFile]}
+        helperText={`上限 ${MAX_SOUND_MB} MB`}
+      >
         <FileField source="src" title="name" />
       </FileInput>
       <DateTimeInput label="建立時間" readOnly source="createdate" />
