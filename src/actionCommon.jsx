@@ -13,11 +13,9 @@ import {
   minValue,
   maxValue,
   CheckboxGroupInput,
-  Button,
   useGetOne,
 } from "react-admin";
 
-import "./modalImage.css";
 import InputAdornment from "@mui/material/InputAdornment";
 import { longInputSx } from "./inputWidth";
 
@@ -44,7 +42,22 @@ import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 import LocationReferenceInput from "./LocationReferenceInput";
 import SoundReferenceInput from "./SoundReferenceInput";
 import ImageReferenceInput from "./ImageReferenceInput";
-import { AlertPreview, DialogPreview, IntroPreview } from "./popupPreview";
+import {
+  AlertPreview,
+  DialogPreview,
+  IntroPreview,
+  NotificationPreview,
+} from "./popupPreview";
+import {
+  usePhoneLook,
+  CallPreviewPane,
+  MarkerPreviewPane,
+  GuideImagePreviewPane,
+  IntroImagePreviewPane,
+  ButtonStylePreviewPane,
+  PopupStylePreviewPane,
+  MapStylePreviewPane,
+} from "./contentPreviews";
 import { getCurrentScenarioName } from "./currentScenario";
 import {
   buildCondition,
@@ -222,39 +235,6 @@ const beaconCondition = () => (
 // the create page's prefill for an action that follows `id`
 export function nextStepState(id) {
   return { record: { prevs: [{ prev: id, conditionType: "ALWAYS" }] } };
-}
-
-export const modalImage = (
-  <>
-    <div id="modalContainer" className="modal">
-      <span id="closeModal" className="close">
-        &times;
-      </span>
-      <img id="modalImage" className="modal-content" />
-      <div id="modalCaption" className="caption"></div>
-    </div>
-  </>
-);
-
-function setModal(img, caption) {
-  const modal = document.getElementById("modalContainer");
-  modal.style.display = "block";
-  const imgElem = document.getElementById("modalImage");
-  imgElem.src = img;
-  imgElem.alt = caption;
-  const captionElem = document.getElementById("modalCaption");
-  captionElem.innerHTML = caption;
-  const closeElem = document.getElementById("closeModal");
-  closeElem.onclick = () => {
-    modal.style.display = "none";
-  };
-}
-
-function modalButton(img, caption) {
-  function handleClick() {
-    setModal(img, caption);
-  }
-  return <Button label={caption} onClick={handleClick} />;
 }
 
 export { longInputSx };
@@ -550,6 +530,7 @@ const PopupInput = ({ formData, enableDelay }) => {
   const blockingPopup = hasAlert || dests.includes("INTRO");
   const hasDialer = dests.includes("DIALER");
   const hasIntro = dests.includes("INTRO");
+  const hasNotification = dests.includes("NOTIFICATION");
   const contentPane = (
     <>
       <h4>
@@ -625,10 +606,6 @@ const PopupInput = ({ formData, enableDelay }) => {
                     source="allowTextReply"
                     defaultValue={false}
                   />
-                  {modalButton(
-                    "https://storage.googleapis.com/daqiaotou/editor/image/text-input.jpg",
-                    "打字回應示意圖"
-                  )}
                 </td>
               </tr>
             )}
@@ -656,14 +633,11 @@ const PopupInput = ({ formData, enableDelay }) => {
         choices={destinations}
         defaultValue={initialDestination}
       />
-      <br />
-      <span>
-        示意圖：
-        {modalButton(
-          "https://storage.googleapis.com/daqiaotou/editor/image/notification.jpg",
-          "通知列(iOS不支援按鈕)"
-        )}
-      </span>
+      {hasNotification && (
+        <div style={{ color: "#757575", fontSize: 14 }}>
+          iOS 的通知列不顯示按鈕。
+        </div>
+      )}
       <h4>
         <u>進階功能</u>
       </h4>
@@ -706,11 +680,13 @@ const PopupInput = ({ formData, enableDelay }) => {
     { id: sender?.userPortrait },
     { enabled: !!sender?.userPortrait }
   );
+  const look = usePhoneLook(formData);
   const previewProps = {
     text: formData.text,
     choices: getButtons(formData),
     allowTextReply: !!formData.allowTextReply && !formData.allowNoReply,
     imageSrc: firstImageSrc,
+    look,
   };
 
   const previewPane = (
@@ -718,7 +694,7 @@ const PopupInput = ({ formData, enableDelay }) => {
       <h4>
         <u>示意圖</u>
       </h4>
-      依Android版佈局繪製；劇本自訂的按鈕、面板顏色與首頁背景不在此反映，實際顯示仍依手機而定。
+      依Android版佈局繪製，套用劇本中在此之前（沿著從開頭到這裡的路）設定的按鈕、面板顏色與首頁圖片；實際顯示仍依手機而定。
       <div
         style={{
           display: "flex",
@@ -744,6 +720,17 @@ const PopupInput = ({ formData, enableDelay }) => {
           <IntroPreview
             {...previewProps}
             scenarioName={getCurrentScenarioName()}
+          />
+        )}
+        {hasNotification && (
+          <NotificationPreview
+            {...previewProps}
+            sender={
+              sender && {
+                name: sender.name,
+                portraitSrc: senderImage?.image?.src,
+              }
+            }
           />
         )}
         {hasDialer && (
@@ -811,18 +798,10 @@ const incomingCallInput = (formData, enableDelay) => (
       defaultValue={"CONNECTING"}
     />{" "}
     <br />
-    <span>
-      示意圖：
-      {modalButton(
-        "https://storage.googleapis.com/daqiaotou/editor/image/phone-calling.png",
-        "未接通"
-      )}
-      {modalButton(
-        "https://storage.googleapis.com/daqiaotou/editor/image/phone-connected.png",
-        "接通"
-      )}
-    </span>
-    <br />
+    <CallPreviewPane
+      formData={formData}
+      status={formData.callStatus || "CONNECTING"}
+    />
     {enableDelay && addDelay(formData, "incomingCall")}
   </>
 );
@@ -838,6 +817,7 @@ const hangUpInput = (formdata, enableDelay) => (
       sort={{ field: "lastupdate", order: "DESC" }}
       perPage={1000}
     />
+    <CallPreviewPane formData={formdata} status="DISCONNECTED" />
     {enableDelay && addDelay(formdata, "hangUp")}
   </>
 );
@@ -865,11 +845,7 @@ const markerInput = (formData, enableDelay) => (
       <AutocompleteInput optionText="name" />
     </LocationReferenceInput>
     <br />
-    {modalButton(
-      "https://storage.googleapis.com/daqiaotou/editor/image/marker.jpg",
-      "示意圖"
-    )}
-    <br />
+    <MarkerPreviewPane formData={formData} />
     {enableDelay && addDelay(formData, "marker")}
   </>
 );
@@ -909,18 +885,7 @@ const mapStyleInput = (formData, enableDelay) => (
     )}
     <BooleanInput label="衛星地圖" source="satellite" defaultValue={false} />
     <br />
-    <span>
-      示意圖：
-      {modalButton(
-        "https://storage.googleapis.com/daqiaotou/editor/image/sattelite.jpg",
-        "衛星地圖"
-      )}
-      {modalButton(
-        "https://storage.googleapis.com/daqiaotou/editor/image/marker.jpg",
-        "一般地圖"
-      )}
-    </span>
-    <br />
+    <MapStylePreviewPane formData={formData} />
     {enableDelay && addDelay(formData, "mapStyle")}
   </>
 );
@@ -985,11 +950,7 @@ const introImageInput = (formData, enableDelay) => (
       perPage={1000}
     />
     <br />
-    {modalButton(
-      "https://storage.googleapis.com/daqiaotou/editor/image/intro-style.jpg",
-      "示意圖"
-    )}
-    <br />
+    <IntroImagePreviewPane formData={formData} />
     {enableDelay && addDelay(formData, "introImage")}
   </>
 );
@@ -998,11 +959,7 @@ const buttonStyleInput = (formData, enableDelay) => (
   <>
     <ColorInput label="背景顏色" source="backgroundColor" />
     <ColorInput label="文字顏色" source="textColor" />
-    {modalButton(
-      "https://storage.googleapis.com/daqiaotou/editor/image/button.jpg",
-      "示意圖"
-    )}
-    <br />
+    <ButtonStylePreviewPane formData={formData} />
     {enableDelay && addDelay(formData, "buttonStyle")}
   </>
 );
@@ -1015,6 +972,7 @@ const popupStyleInput = (formData, enableDelay) => (
       helperText="含透明度，例如 #59202020"
       source="panelColor"
     />
+    <PopupStylePreviewPane formData={formData} />
     {enableDelay && addDelay(formData, "popupStyle")}
   </>
 );
@@ -1067,6 +1025,7 @@ const guideImageInput = (formData, enableDelay) => (
       perPage={1000}
     />
     <br />
+    <GuideImagePreviewPane formData={formData} />
     {enableDelay && addDelay(formData, "guideImage")}
   </>
 );

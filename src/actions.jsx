@@ -56,7 +56,6 @@ import {
   buttonStyleInput,
   popupStyleInput,
   variableUpdateInput,
-  modalImage,
   validateBeforeSubmit,
   comparisonTypes,
   endgameInput,
@@ -481,7 +480,6 @@ const InputForm = (props) => {
               <h3>常用內容</h3>
               {forbidDelayNotification}
               <hr />
-              {modalImage}
               <BooleanInput label="聲音" source="hasSound" />
               {formData.hasSound && soundInput(formData, enableDelay)}
               <hr />
