@@ -339,6 +339,17 @@ const statusBar = <StatusBar />;
 const mapBackground = <MapBackground />;
 const introBackground = <IntroBackground />;
 
+// the map, in the story's map style when an earlier MAP_STYLE set one
+const mapBackgroundFor = (look) =>
+  look.mapColors || look.mapSatellite ? (
+    <MapBackground
+      colors={look.mapColors || undefined}
+      satellite={look.mapSatellite}
+    />
+  ) : (
+    mapBackground
+  );
+
 // the intro screen, with the story's own picture and logo when it sets them
 const introBackgroundFor = (look) =>
   look.introBackgroundSrc || look.introLogoSrc || look.introNoLogo ? (
@@ -576,7 +587,7 @@ export function AlertPreview({
 }) {
   const hasInput = choices.length > 0 || allowTextReply;
   return (
-    <Phone background={mapBackground} scale={scale}>
+    <Phone background={mapBackgroundFor(look)} scale={scale}>
       <div
         style={{
           position: "absolute",
@@ -773,7 +784,7 @@ export function DialogPreview({
 }) {
   const hasInput = choices.length > 0 || allowTextReply;
   return (
-    <Phone background={mapBackground} scale={scale}>
+    <Phone background={mapBackgroundFor(look)} scale={scale}>
       <div
         style={{
           position: "absolute",
@@ -995,17 +1006,19 @@ function MarkerIcon({ src }) {
 export function MapPreview({
   colors,
   satellite,
-  mapLogoSrc,
   guideImageSrc,
   marker,
+  look = {},
+  mapLogoSrc = look.mapLogoSrc,
   scale,
   children,
 }) {
+  // a map style of its own, else the one the story has set by now
   const background =
     colors || satellite ? (
       <MapBackground colors={colors} satellite={satellite} />
     ) : (
-      mapBackground
+      mapBackgroundFor(look)
     );
   return (
     <Phone background={background} scale={scale}>
@@ -1079,10 +1092,16 @@ const callStatusText = {
 // 來電: activity_incoming_call.xml, a blurred card 27.5dp from the sides,
 // 520:320 tall, over the map; the portrait is the app's avatar until the
 // story's picture loads. The timer runs from 00:00 once the call connects.
-export function CallPreview({ caller, portraitSrc, status = "CONNECTING", scale }) {
+export function CallPreview({
+  caller,
+  portraitSrc,
+  status = "CONNECTING",
+  look = {},
+  scale,
+}) {
   const cardWidth = phoneWidth - 55;
   return (
-    <Phone background={mapBackground} scale={scale}>
+    <Phone background={mapBackgroundFor(look)} scale={scale}>
       <div
         style={{
           position: "absolute",
@@ -1150,12 +1169,13 @@ export function NotificationPreview({
   allowTextReply,
   imageSrc,
   sender,
+  look = {},
   scale,
 }) {
   const name = sender?.name || "Urban Baker";
   const actions = [...choices, ...(allowTextReply ? ["回覆"] : [])];
   return (
-    <Phone background={mapBackground} scale={scale}>
+    <Phone background={mapBackgroundFor(look)} scale={scale}>
       <div
         style={{
           position: "absolute",

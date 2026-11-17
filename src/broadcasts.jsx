@@ -171,25 +171,25 @@ const InputForm = (props) => {
               {formData.hasPopup && popupInput(formData)}
               <hr />
               <BooleanInput label="關閉圖文框" source="hasPopupDismissal" />
-              {formData.hasPopupDismissal && popupDismissalInput()}
+              {formData.hasPopupDismissal && popupDismissalInput(formData)}
               <hr />
               <BooleanInput label="來電" source="hasIncomingCall" />
-              {formData.hasIncomingCall && incomingCallInput()}
+              {formData.hasIncomingCall && incomingCallInput(formData)}
               <hr />
               <BooleanInput label="掛電話" source="hasHangUp" />
-              {formData.hasHangUp && hangUpInput()}
+              {formData.hasHangUp && hangUpInput(formData)}
               <hr />
               <BooleanInput label="新圖釘" source="hasMarker" />
-              {formData.hasMarker && markerInput()}
+              {formData.hasMarker && markerInput(formData)}
               <hr />
               <BooleanInput label="移除圖釘" source="hasMarkerRemoval" />
-              {formData.hasMarkerRemoval && markerRemovalInput()}
+              {formData.hasMarkerRemoval && markerRemovalInput(formData)}
               <hr />
               <BooleanInput label="地圖樣式" source="hasMapStyle" />
-              {formData.hasMapStyle && mapStyleInput()}
+              {formData.hasMapStyle && mapStyleInput(formData)}
               <hr />
               <BooleanInput label="停止聲音" source="hasSilence" />
-              {formData.hasSilence && silenceInput()}
+              {formData.hasSilence && silenceInput(formData)}
             </>
           );
         }}

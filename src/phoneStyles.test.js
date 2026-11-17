@@ -64,6 +64,7 @@ test("with no style action the app's own styles apply", () => {
     button: null,
     popup: null,
     intro: null,
+    map: null,
   });
 });
 
@@ -168,17 +169,17 @@ test("a home page set to have no logo has none", () => {
   assert.equal(styles.intro.noLogo, true);
 });
 
-test("the old logo placement is used only in its compatibility mode", () => {
+test("the logo's own placement applies even with its form section hidden", () => {
+  // publishing sends the values whether or not 向下相容模式 is on
   const placed = {
     ...start,
     hasIntroImage: true,
     introLogo: "logo",
+    noIntroLogo: false,
     introLogoMarginTop: 40,
     introLogoWidth: 100,
   };
-  assert.equal(stylesAt(placed, map(placed)).intro.logoWidth, null);
-  const advanced = { ...placed, advancedLogo: true };
-  const intro = stylesAt(advanced, map(advanced)).intro;
+  const intro = stylesAt(placed, map(placed)).intro;
   assert.equal(intro.logoMarginTop, 40);
   assert.equal(intro.logoWidth, 100);
 });
@@ -203,6 +204,46 @@ test("an action that loops back still finds its way from the start", () => {
   const b = step("b", "a", { hasButtonStyle: true, textColor: "#123456" });
   assert.equal(stylesAt(a, map(start, a, b)).button, null);
   assert.equal(stylesAt(b, map(start, a, b)).button.textColor, "#123456");
+});
+
+test("without its own, an action's styles are those it starts under", () => {
+  // publishing sends a popup before the action's own style changes
+  const a = step("a", "start", {
+    hasPopupStyle: true,
+    alertTextColor: "#ff0000",
+  });
+  assert.equal(stylesAt(a, map(start, a), undefined, { own: false }).popup, null);
+});
+
+test("a map style set earlier on the way comes along", () => {
+  const satellite = step("sat", "start", { hasMapStyle: true, satellite: true });
+  const styled = step("styled", "sat", { hasMapStyle: true, mapStyle: "night" });
+  const a = step("a", "sat");
+  const b = step("b", "styled");
+  assert.deepEqual(stylesAt(a, map(start, satellite, styled, a, b)).map, {
+    satellite: true,
+    mapStyle: null,
+  });
+  assert.deepEqual(stylesAt(b, map(start, satellite, styled, a, b)).map, {
+    satellite: false,
+    mapStyle: "night",
+  });
+});
+
+test("a map style section with nothing chosen changes nothing", () => {
+  const empty = step("empty", "start", { hasMapStyle: true });
+  const a = step("a", "empty");
+  assert.equal(stylesAt(a, map(start, empty, a)).map, null);
+});
+
+test("the tree follows the action list's order, not the order records arrive in", () => {
+  // two branches lead to "a"; the list's tree goes through the first by id
+  const x = step("x", "start", { hasButtonStyle: true, textColor: "#111111" });
+  const y = step("y", "start", { hasButtonStyle: true, textColor: "#222222" });
+  const a = { id: "a", prevs: [{ prev: "y" }, { prev: "x" }] };
+  const forwards = stylesAt(a, map(start, x, y, a)).button.textColor;
+  const backwards = stylesAt(a, map(a, y, x, start)).button.textColor;
+  assert.equal(forwards, backwards);
 });
 
 test("an unsaved change of previous step is followed", () => {
