@@ -1,6 +1,6 @@
 // What the phone previews borrow from the story. Kept free of React so it
 // can be tested with node --test.
-import { getActionTree } from "./actionTree.js";
+import { getActionTree, inListOrder } from "./actionTree.js";
 
 // A colour as the app reads it (Android's Color.parseColor), as CSS, or null
 // when the app would ignore it. Android writes the alpha first (#AARRGGBB),
@@ -67,9 +67,9 @@ function popupStyleOf(action) {
 function introOf(action) {
   if (!action.hasIntroImage) return null;
   const noLogo = !!action.noIntroLogo;
-  // the logo's own placement, published only in the compatibility mode
-  const placed = !noLogo && action.advancedLogo;
-  const number = (v) => (placed && v !== "" && v != null ? Number(v) : null);
+  // the logo's own placement: published whenever it is filled in, even
+  // after 向下相容模式 is switched off and hides it
+  const number = (v) => (v !== "" && v != null ? Number(v) : null);
   return {
     background: action.introBackground || null,
     logo: noLogo ? null : action.introLogo || null,
@@ -78,6 +78,15 @@ function introOf(action) {
     logoWidth: number(action.introLogoWidth),
     textColor: action.introTextColor || null,
     mapLogo: action.mapLogo || null,
+  };
+}
+
+function mapStyleOf(action) {
+  if (!action.hasMapStyle || !(action.satellite || action.mapStyle))
+    return null;
+  return {
+    satellite: !!action.satellite,
+    mapStyle: action.satellite ? null : action.mapStyle,
   };
 }
 
@@ -100,7 +109,9 @@ export function logoBox({ marginTop, width } = {}, screenHeight) {
 // to stylesAt.
 export function storyIndex(actions) {
   const parents = new Map();
-  const tree = getActionTree(Object.values(actions).map((a) => ({ ...a })));
+  const tree = getActionTree(
+    inListOrder(Object.values(actions)).map((a) => ({ ...a }))
+  );
   function walk(branch) {
     branch.children.forEach((child) => {
       parents.set(child.node.id, branch.node.id);
@@ -129,8 +140,15 @@ function pathTo(id, actions, index) {
 // including a changed previous step: the way in is the saved one while it
 // is still among the previous steps, else the first previous step that the
 // story reaches without passing through this action. null means the app's
-// own.
-export function stylesAt(action, actions, index = storyIndex(actions)) {
+// own. With `own: false` the action's own styles are left out: publishing
+// sends its popup before its own style changes, so the popup shows in the
+// styles it starts under.
+export function stylesAt(
+  action,
+  actions,
+  index = storyIndex(actions),
+  { own = true } = {}
+) {
   let before = [];
   if (!action.firstAction) {
     const prevIds = (action.prevs || []).map((p) => p?.prev).filter(Boolean);
@@ -147,13 +165,14 @@ export function stylesAt(action, actions, index = storyIndex(actions)) {
       }
     }
   }
-  const chain = [...before, action];
+  const chain = own ? [...before, action] : before;
   const nearest = (pick) =>
     chain.reduce((found, a) => pick(a) || found, null);
   return {
     button: nearest(buttonStyleOf),
     popup: nearest(popupStyleOf),
     intro: nearest(introOf),
+    map: nearest(mapStyleOf),
   };
 }
 

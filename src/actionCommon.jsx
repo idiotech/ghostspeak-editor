@@ -50,6 +50,7 @@ import {
 } from "./popupPreview";
 import {
   usePhoneLook,
+  useInStory,
   CallPreviewPane,
   MarkerPreviewPane,
   GuideImagePreviewPane,
@@ -680,7 +681,9 @@ const PopupInput = ({ formData, enableDelay }) => {
     { id: sender?.userPortrait },
     { enabled: !!sender?.userPortrait }
   );
-  const look = usePhoneLook();
+  // the popup shows before the action's own style changes
+  const look = usePhoneLook("before");
+  const inStory = useInStory();
   const previewProps = {
     text: formData.text,
     choices: getButtons(formData),
@@ -694,7 +697,9 @@ const PopupInput = ({ formData, enableDelay }) => {
       <h4>
         <u>示意圖</u>
       </h4>
-      依Android版佈局繪製，套用劇本中在此之前（沿著從開頭到這裡的路）設定的按鈕、面板顏色與首頁圖片；實際顯示仍依手機而定。
+      {inStory
+        ? "依Android版佈局繪製，套用劇本中在此之前（沿著從開頭到這裡的路）設定的按鈕、面板顏色、首頁圖片與地圖樣式；實際顯示仍依手機而定。"
+        : "依Android版佈局繪製，以App預設的顏色與地圖顯示：廣播不在劇本的路線上，玩家收到時的樣式依各自進度而定。"}
       <div
         style={{
           display: "flex",
