@@ -1,4 +1,5 @@
 import * as React from "react";
+import { PhoneLookProvider } from "./contentPreviews";
 import {
   ArrayInput,
   BooleanInput,
@@ -56,7 +57,6 @@ import {
   buttonStyleInput,
   popupStyleInput,
   variableUpdateInput,
-  modalImage,
   validateBeforeSubmit,
   comparisonTypes,
   endgameInput,
@@ -343,7 +343,7 @@ const InputForm = (props) => {
             return p.name + " ➜ " + getPrevDesc(p) + "之後";
           }
           return (
-            <>
+            <PhoneLookProvider formData={formData}>
               {props.showid === "true" ? (
                 <TextInput source="id" readOnly />
               ) : (
@@ -481,7 +481,6 @@ const InputForm = (props) => {
               <h3>常用內容</h3>
               {forbidDelayNotification}
               <hr />
-              {modalImage}
               <BooleanInput label="聲音" source="hasSound" />
               {formData.hasSound && soundInput(formData, enableDelay)}
               <hr />
@@ -559,7 +558,7 @@ const InputForm = (props) => {
                   {formData.hasVariableUpdate && variableUpdateInput()}
                 </>
               )}
-            </>
+            </PhoneLookProvider>
           );
         }}
       </FormDataConsumer>
