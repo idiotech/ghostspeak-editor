@@ -680,7 +680,7 @@ const PopupInput = ({ formData, enableDelay }) => {
     { id: sender?.userPortrait },
     { enabled: !!sender?.userPortrait }
   );
-  const look = usePhoneLook(formData);
+  const look = usePhoneLook();
   const previewProps = {
     text: formData.text,
     choices: getButtons(formData),

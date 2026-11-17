@@ -8,6 +8,8 @@ import {
   stylesAt,
   mapColors,
   defaultMapColors,
+  storyIndex,
+  logoBox,
 } from "./phoneStyles.js";
 
 test("a #RRGGBB colour is used as it is", () => {
@@ -25,8 +27,23 @@ test("a colour the app cannot read is ignored, as the app ignores it", () => {
   assert.equal(cssColor("blue-ish"), null);
 });
 
+test("the colour names Android knows are read too", () => {
+  assert.equal(cssColor("red"), "#ff0000");
+  assert.equal(cssColor("DarkGray"), "#444444");
+  assert.equal(cssColor("brown"), null);
+});
+
 test("spaces around a colour are dropped", () => {
   assert.equal(cssColor(" #FFFFFF "), "#FFFFFF");
+});
+
+test("a hidden feature shown again keeps the colour set before", () => {
+  const colors = mapColors([
+    { featureType: "water", stylers: [{ color: "#000033" }] },
+    { featureType: "water", stylers: [{ visibility: "off" }] },
+    { featureType: "water", stylers: [{ visibility: "on" }] },
+  ]);
+  assert.equal(colors.water, "#000033");
 });
 
 test("a marker icon is drawn at a quarter of its pixels, in dp", () => {
@@ -136,6 +153,9 @@ test("the home page images and text colour come along", () => {
   assert.deepEqual(stylesAt(a, map(intro, a)).intro, {
     background: "bg",
     logo: "logo",
+    noLogo: false,
+    logoMarginTop: null,
+    logoWidth: null,
     textColor: "#ffeeaa",
     mapLogo: "mapLogo",
   });
@@ -143,7 +163,39 @@ test("the home page images and text colour come along", () => {
 
 test("a home page set to have no logo has none", () => {
   const intro = { ...start, hasIntroImage: true, introLogo: "logo", noIntroLogo: true };
-  assert.equal(stylesAt(intro, map(intro)).intro.logo, null);
+  const styles = stylesAt(intro, map(intro));
+  assert.equal(styles.intro.logo, null);
+  assert.equal(styles.intro.noLogo, true);
+});
+
+test("the old logo placement is used only in its compatibility mode", () => {
+  const placed = {
+    ...start,
+    hasIntroImage: true,
+    introLogo: "logo",
+    introLogoMarginTop: 40,
+    introLogoWidth: 100,
+  };
+  assert.equal(stylesAt(placed, map(placed)).intro.logoWidth, null);
+  const advanced = { ...placed, advancedLogo: true };
+  const intro = stylesAt(advanced, map(advanced)).intro;
+  assert.equal(intro.logoMarginTop, 40);
+  assert.equal(intro.logoWidth, 100);
+});
+
+test("a story's logo fits 220×300, centred above the 59% line", () => {
+  assert.deepEqual(logoBox({}, 740), {
+    width: 220,
+    height: 300,
+    top: (740 * 0.59 - 300) / 2,
+  });
+});
+
+test("the old placement sets the logo's top margin and width", () => {
+  const box = logoBox({ marginTop: 40, width: 100 }, 740);
+  assert.equal(box.width, 100);
+  // still centred, between the margin and the line
+  assert.equal(box.top, 40 + (740 * 0.59 - 40 - 300) / 2);
 });
 
 test("an action that loops back still finds its way from the start", () => {
@@ -151,6 +203,25 @@ test("an action that loops back still finds its way from the start", () => {
   const b = step("b", "a", { hasButtonStyle: true, textColor: "#123456" });
   assert.equal(stylesAt(a, map(start, a, b)).button, null);
   assert.equal(stylesAt(b, map(start, a, b)).button.textColor, "#123456");
+});
+
+test("an unsaved change of previous step is followed", () => {
+  const red = step("red", "start", { hasButtonStyle: true, textColor: "#ff0000" });
+  const blue = step("blue", "start", { hasButtonStyle: true, textColor: "#0000ff" });
+  const saved = step("a", "red");
+  const moved = { ...saved, prevs: [{ prev: "blue" }] };
+  assert.equal(
+    stylesAt(moved, map(start, red, blue, saved)).button.textColor,
+    "#0000ff"
+  );
+});
+
+test("the index can be built once and reused for every lookup", () => {
+  const style = step("style", "start", { hasButtonStyle: true, textColor: "#123456" });
+  const a = step("a", "style");
+  const actions = map(start, style, a);
+  const index = storyIndex(actions);
+  assert.equal(stylesAt(a, actions, index).button.textColor, "#123456");
 });
 
 test("an action nothing leads to gets only its own styles", () => {

@@ -7,7 +7,7 @@ import {
   MapPreview,
 } from "./popupPreview";
 import { useGetMap } from "./serverCommon";
-import { stylesAt, cssColor, mapColors } from "./phoneStyles";
+import { stylesAt, storyIndex, cssColor, mapColors } from "./phoneStyles";
 import { getCurrentScenarioName } from "./currentScenario";
 
 // the smaller phones shown beside a content section's inputs
@@ -19,29 +19,74 @@ export function useImageSrc(id) {
   return (id && data?.image?.src) || null;
 }
 
+// the form's fields that decide which styles apply and what they are
+const styleFields = [
+  "id",
+  "firstAction",
+  "prevs",
+  "hasButtonStyle",
+  "backgroundColor",
+  "textColor",
+  "hasPopupStyle",
+  "alertTextColor",
+  "panelColor",
+  "hasIntroImage",
+  "introBackground",
+  "introLogo",
+  "noIntroLogo",
+  "advancedLogo",
+  "introLogoMarginTop",
+  "introLogoWidth",
+  "introTextColor",
+  "mapLogo",
+];
+
+const PhoneLookContext = React.createContext({});
+
 // The story's own look where the action runs: the colours and pictures set
 // by the nearest earlier button, popup and home page style, the action's own
-// included, ready for the previews' `look`.
-export function usePhoneLook(formData) {
+// included, ready for the previews' `look`. Worked out once per form, and
+// again only when the story or one of the fields above changes, not on
+// every keystroke in the text.
+export const PhoneLookProvider = ({ formData, children }) => {
   const [actions] = useGetMap("actions");
+  const index = React.useMemo(() => storyIndex(actions), [actions]);
+  const key = JSON.stringify(styleFields.map((f) => formData?.[f] ?? null));
   const styles = React.useMemo(
-    () => stylesAt(formData || {}, actions),
-    [formData, actions]
+    () => stylesAt(formData || {}, actions, index),
+    // formData is a new object on every render; key holds what matters
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [key, actions, index]
   );
   const introBackgroundSrc = useImageSrc(styles.intro?.background);
   const introLogoSrc = useImageSrc(styles.intro?.logo);
   const mapLogoSrc = useImageSrc(styles.intro?.mapLogo);
-  return {
-    buttonBackground: cssColor(styles.button?.backgroundColor),
-    buttonText: cssColor(styles.button?.textColor),
-    alertText: cssColor(styles.popup?.alertTextColor),
-    panel: cssColor(styles.popup?.panelColor),
-    introBackgroundSrc,
-    introLogoSrc,
-    introText: cssColor(styles.intro?.textColor),
-    mapLogoSrc,
-  };
-}
+  const look = React.useMemo(
+    () => ({
+      buttonBackground: cssColor(styles.button?.backgroundColor),
+      buttonText: cssColor(styles.button?.textColor),
+      alertText: cssColor(styles.popup?.alertTextColor),
+      panel: cssColor(styles.popup?.panelColor),
+      introBackgroundSrc,
+      introLogoSrc,
+      introNoLogo: !!styles.intro?.noLogo,
+      introLogoPlacement: styles.intro && {
+        marginTop: styles.intro.logoMarginTop,
+        width: styles.intro.logoWidth,
+      },
+      introText: cssColor(styles.intro?.textColor),
+      mapLogoSrc,
+    }),
+    [styles, introBackgroundSrc, introLogoSrc, mapLogoSrc]
+  );
+  return (
+    <PhoneLookContext.Provider value={look}>{children}</PhoneLookContext.Provider>
+  );
+};
+
+// the look worked out by the form's PhoneLookProvider; the app's own
+// outside one
+export const usePhoneLook = () => React.useContext(PhoneLookContext);
 
 // the phones in a row under a heading, after a content section's inputs
 export const PreviewRow = ({ note, children }) => (
@@ -78,7 +123,7 @@ export const CallPreviewPane = ({ formData, status }) => {
 
 export const MarkerPreviewPane = ({ formData }) => {
   const iconSrc = useImageSrc(formData.markerIcon);
-  const look = usePhoneLook(formData);
+  const look = usePhoneLook();
   return (
     <PreviewRow note="標題在玩家點圖釘後才出現">
       <MapPreview
@@ -92,7 +137,7 @@ export const MarkerPreviewPane = ({ formData }) => {
 
 export const GuideImagePreviewPane = ({ formData }) => {
   const guideImageSrc = useImageSrc(formData.guideImage);
-  const look = usePhoneLook(formData);
+  const look = usePhoneLook();
   return (
     <PreviewRow>
       <MapPreview
@@ -106,8 +151,8 @@ export const GuideImagePreviewPane = ({ formData }) => {
 
 // the home page with its new picture, logo and text colour, and the map
 // with its new logo
-export const IntroImagePreviewPane = ({ formData }) => {
-  const look = usePhoneLook(formData);
+export const IntroImagePreviewPane = () => {
+  const look = usePhoneLook();
   return (
     <PreviewRow note="文字為示意">
       <IntroPreview
@@ -124,8 +169,8 @@ export const IntroImagePreviewPane = ({ formData }) => {
 };
 
 // a popup after this action, in the colours it sets
-export const ButtonStylePreviewPane = ({ formData }) => {
-  const look = usePhoneLook(formData);
+export const ButtonStylePreviewPane = () => {
+  const look = usePhoneLook();
   return (
     <PreviewRow note="之後的圖文視窗與首頁按鈕；文字為示意">
       <AlertPreview
@@ -139,8 +184,8 @@ export const ButtonStylePreviewPane = ({ formData }) => {
   );
 };
 
-export const PopupStylePreviewPane = ({ formData }) => {
-  const look = usePhoneLook(formData);
+export const PopupStylePreviewPane = () => {
+  const look = usePhoneLook();
   return (
     <PreviewRow note="之後的提示視窗；文字為示意">
       <AlertPreview
@@ -180,7 +225,7 @@ export const MapStylePreviewPane = ({ formData }) => {
   const src = !formData.satellite && record?.mapStyle?.src;
   const { style, failed } = useStyleFile(src || null);
   const colors = React.useMemo(() => style && mapColors(style), [style]);
-  const look = usePhoneLook(formData);
+  const look = usePhoneLook();
   const note = formData.satellite
     ? "衛星地圖為示意，實際是當地的空照圖"
     : failed

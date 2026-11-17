@@ -1,4 +1,5 @@
 import * as React from "react";
+import { PhoneLookProvider } from "./contentPreviews";
 import {
   ArrayInput,
   BooleanInput,
@@ -342,7 +343,7 @@ const InputForm = (props) => {
             return p.name + " ➜ " + getPrevDesc(p) + "之後";
           }
           return (
-            <>
+            <PhoneLookProvider formData={formData}>
               {props.showid === "true" ? (
                 <TextInput source="id" readOnly />
               ) : (
@@ -557,7 +558,7 @@ const InputForm = (props) => {
                   {formData.hasVariableUpdate && variableUpdateInput()}
                 </>
               )}
-            </>
+            </PhoneLookProvider>
           );
         }}
       </FormDataConsumer>

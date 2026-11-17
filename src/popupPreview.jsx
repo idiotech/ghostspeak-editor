@@ -1,4 +1,5 @@
 import * as React from "react";
+import { logoBox, markerSize } from "./phoneStyles";
 
 // Previews of the three popup screens, drawn the way the Android app lays
 // them out (ghostspeak-client: popup/res/layout/activity_single_popup.xml,
@@ -264,12 +265,20 @@ const dotY = 430;
 // the intro screen behind the script: activity_intro.xml's background picture
 // and logo (the app's own, unless the story sets its own), and the top bar's
 // scrim and settings button (setting/res/layout/top_bar.xml)
-function IntroBackground({ backgroundSrc, logoSrc }) {
-  // the app's logo is 139×79; a story's own is fitted into 220×300
-  // (title_logo), both centred above the 59% guideline
-  const logo = logoSrc
-    ? { src: logoSrc, width: 220, height: 300 }
-    : { src: "/preview/intro_logo.png", width: 139, height: 79 };
+function IntroBackground({ backgroundSrc, logoSrc, noLogo, logoPlacement }) {
+  // the app's logo is 139×79, centred above the 59% guideline; a story's
+  // own goes where logoBox puts it; with 不使用首頁Logo the editor publishes
+  // a transparent picture, so there is none
+  const logo = noLogo
+    ? null
+    : logoSrc
+    ? { src: logoSrc, ...logoBox(logoPlacement || {}, phoneHeight) }
+    : {
+        src: "/preview/intro_logo.png",
+        width: 139,
+        height: 79,
+        top: (phoneHeight * 0.59 - 79) / 2,
+      };
   return (
     <>
       <img
@@ -284,18 +293,20 @@ function IntroBackground({ backgroundSrc, logoSrc }) {
           objectFit: "cover",
         }}
       />
-      <img
-        src={logo.src}
-        alt=""
-        style={{
-          position: "absolute",
-          width: logo.width,
-          height: logo.height,
-          objectFit: "contain",
-          left: (phoneWidth - logo.width) / 2,
-          top: (phoneHeight * 0.59 - logo.height) / 2,
-        }}
-      />
+      {logo && (
+        <img
+          src={logo.src}
+          alt=""
+          style={{
+            position: "absolute",
+            width: logo.width,
+            height: logo.height,
+            objectFit: "contain",
+            left: (phoneWidth - logo.width) / 2,
+            top: logo.top,
+          }}
+        />
+      )}
       <div
         style={{
           position: "absolute",
@@ -330,10 +341,12 @@ const introBackground = <IntroBackground />;
 
 // the intro screen, with the story's own picture and logo when it sets them
 const introBackgroundFor = (look) =>
-  look.introBackgroundSrc || look.introLogoSrc ? (
+  look.introBackgroundSrc || look.introLogoSrc || look.introNoLogo ? (
     <IntroBackground
       backgroundSrc={look.introBackgroundSrc}
       logoSrc={look.introLogoSrc}
+      noLogo={look.introNoLogo}
+      logoPlacement={look.introLogoPlacement}
     />
   ) : (
     introBackground
@@ -915,7 +928,6 @@ export function IntroPreview({
 // pixels (AbstractMapActivity.scaleImage), its bottom centre on the place,
 // with the info window that shows the title once the player taps it
 function MapMarker({ src, title }) {
-  const [size, setSize] = React.useState(null);
   return (
     <div
       style={{
@@ -948,25 +960,32 @@ function MapMarker({ src, title }) {
           {title}
         </div>
       )}
-      {src && (
-        <img
-          src={src}
-          alt=""
-          onLoad={(e) =>
-            setSize({
-              width: e.currentTarget.naturalWidth / 4,
-              height: e.currentTarget.naturalHeight / 4,
-            })
-          }
-          style={{
-            display: "block",
-            visibility: size ? "visible" : "hidden",
-            width: size?.width,
-            height: size?.height,
-          }}
-        />
-      )}
+      {/* a new picture starts over, so it never shows at the old one's size */}
+      {src && <MarkerIcon key={src} src={src} />}
     </div>
+  );
+}
+
+// the picture, hidden until its size is known, and for good if it fails
+function MarkerIcon({ src }) {
+  const [size, setSize] = React.useState(null);
+  return (
+    <img
+      src={src}
+      alt=""
+      onLoad={(e) =>
+        setSize(
+          markerSize(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)
+        )
+      }
+      onError={() => setSize(null)}
+      style={{
+        display: "block",
+        visibility: size ? "visible" : "hidden",
+        width: size?.width,
+        height: size?.height,
+      }}
+    />
   );
 }
 
