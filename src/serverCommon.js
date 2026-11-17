@@ -10,7 +10,7 @@ export const apiUrl =
 const allRecords = 10000;
 
 // v3's useGetList returned records keyed by id; the publish code relies on that shape
-function useGetMap(resource) {
+export function useGetMap(resource) {
   const { data, isSuccess, error } = useGetList(resource, {
     pagination: { page: 1, perPage: allRecords },
     sort: { field: "published_at", order: "DESC" },
