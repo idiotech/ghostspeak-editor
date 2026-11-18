@@ -895,6 +895,13 @@ const mapStyleInput = (formData, enableDelay) => (
   </>
 );
 
+// the themes a story can give its home page (INTRO_IMAGE.theme); left
+// blank, the phone keeps the earlier one
+const introThemes = [
+  { id: "dark", name: "深色" },
+  { id: "light", name: "淺色" },
+];
+
 const introImageInput = (formData, enableDelay) => (
   <>
     <ImageReferenceInput
@@ -945,7 +952,23 @@ const introImageInput = (formData, enableDelay) => (
         )}
       </>
     )}
-    <ColorInput label="首頁文字顏色" source="introTextColor" />
+    <SelectInput
+      label="首頁主題"
+      source="introTheme"
+      choices={introThemes}
+      emptyText="沿用之前的設定"
+      helperText="淺色：狀態列圖示與文字改為深色，適合淺色背景圖；未設定過時為深色"
+    />
+    <ColorInput
+      label="首頁文字顏色"
+      source="introTextColor"
+      helperText="留白則沿用之前的設定，未設定過時依主題：深色主題白字、淺色主題深字"
+    />
+    <ColorInput
+      label="首頁按鈕顏色"
+      source="introAccentColor"
+      helperText="留白則沿用之前的設定；「按鈕顏色」動作設定的背景色優先"
+    />
     <ImageReferenceInput
       label="地圖頁logo"
       helperText="建議比例: 寬62 / 高100"

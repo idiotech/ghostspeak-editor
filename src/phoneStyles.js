@@ -64,21 +64,54 @@ function popupStyleOf(action) {
   };
 }
 
+// What one INTRO_IMAGE action publishes. A field it leaves blank is
+// published as null, and the phone then keeps the earlier one, so those are
+// left undefined here. The switch 不使用首頁Logo publishes an empty picture,
+// which does replace an earlier logo.
 function introOf(action) {
   if (!action.hasIntroImage) return null;
-  const noLogo = !!action.noIntroLogo;
-  // the logo's own placement: published whenever it is filled in, even
-  // after 向下相容模式 is switched off and hides it
-  const number = (v) => (v !== "" && v != null ? Number(v) : null);
+  const given = (v) => (v !== "" && v != null ? v : undefined);
+  const number = (v) => (given(v) === undefined ? undefined : Number(v));
   return {
-    background: action.introBackground || null,
-    logo: noLogo ? null : action.introLogo || null,
-    noLogo,
+    background: given(action.introBackground),
+    logo: action.noIntroLogo ? null : given(action.introLogo),
+    noLogo: action.noIntroLogo
+      ? true
+      : given(action.introLogo) !== undefined
+      ? false
+      : undefined,
+    // published whenever they are filled in, even after 向下相容模式 is
+    // switched off and hides them
     logoMarginTop: number(action.introLogoMarginTop),
     logoWidth: number(action.introLogoWidth),
-    textColor: action.introTextColor || null,
-    mapLogo: action.mapLogo || null,
+    textColor: given(action.introTextColor),
+    theme: given(action.introTheme),
+    accentColor: given(action.introAccentColor),
+    mapLogo: given(action.mapLogo),
   };
+}
+
+const introFields = [
+  "background",
+  "logo",
+  "noLogo",
+  "logoMarginTop",
+  "logoWidth",
+  "textColor",
+  "theme",
+  "accentColor",
+  "mapLogo",
+];
+
+// the home page after the given INTRO_IMAGE actions, field by field; null
+// when none ran
+function mergeIntros(intros) {
+  if (intros.length === 0) return null;
+  const merged = Object.fromEntries(introFields.map((f) => [f, null]));
+  merged.noLogo = false;
+  for (const intro of intros)
+    for (const f of introFields) if (intro[f] !== undefined) merged[f] = intro[f];
+  return merged;
 }
 
 function mapStyleOf(action) {
@@ -171,7 +204,7 @@ export function stylesAt(
   return {
     button: nearest(buttonStyleOf),
     popup: nearest(popupStyleOf),
-    intro: nearest(introOf),
+    intro: mergeIntros(chain.map(introOf).filter(Boolean)),
     map: nearest(mapStyleOf),
   };
 }

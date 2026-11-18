@@ -158,6 +158,8 @@ test("the home page images and text colour come along", () => {
     logoMarginTop: null,
     logoWidth: null,
     textColor: "#ffeeaa",
+    theme: null,
+    accentColor: null,
     mapLogo: "mapLogo",
   });
 });
@@ -316,4 +318,53 @@ test("a hidden feature is not drawn", () => {
 test("a style that is not a list of rules gives Google's own colours", () => {
   assert.deepEqual(mapColors({ nonsense: true }), defaultMapColors);
   assert.deepEqual(mapColors(null), defaultMapColors);
+});
+
+test("a home page theme and button colour come along", () => {
+  const intro = {
+    ...start,
+    hasIntroImage: true,
+    introTheme: "light",
+    introAccentColor: "#42928D",
+  };
+  const a = step("a", "start");
+  const styles = stylesAt(a, map(intro, a)).intro;
+  assert.equal(styles.theme, "light");
+  assert.equal(styles.accentColor, "#42928D");
+});
+
+test("a home page field left blank keeps the one set before, as on the phone", () => {
+  const first = {
+    ...start,
+    hasIntroImage: true,
+    introBackground: "paper",
+    introTheme: "light",
+    introTextColor: "#1E3A2E",
+    noIntroLogo: true,
+  };
+  const later = step("later", "start", {
+    hasIntroImage: true,
+    introAccentColor: "#ff0000",
+    noIntroLogo: false,
+  });
+  const a = step("a", "later");
+  const intro = stylesAt(a, map(first, later, a)).intro;
+  assert.equal(intro.background, "paper");
+  assert.equal(intro.theme, "light");
+  assert.equal(intro.textColor, "#1E3A2E");
+  assert.equal(intro.accentColor, "#ff0000");
+  // no logo chosen and the switch off publishes no logo: the earlier none stays
+  assert.equal(intro.noLogo, true);
+});
+
+test("a logo chosen later replaces an earlier none", () => {
+  const first = { ...start, hasIntroImage: true, noIntroLogo: true };
+  const later = step("later", "start", {
+    hasIntroImage: true,
+    noIntroLogo: false,
+    introLogo: "logo",
+  });
+  const intro = stylesAt(later, map(first, later)).intro;
+  assert.equal(intro.logo, "logo");
+  assert.equal(intro.noLogo, false);
 });

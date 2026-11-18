@@ -8,6 +8,7 @@ import {
 } from "./popupPreview";
 import { useGetMap } from "./serverCommon";
 import { stylesAt, storyIndex, cssColor, mapColors } from "./phoneStyles";
+import { introColors } from "./introTheme";
 import { getCurrentScenarioName } from "./currentScenario";
 
 // the smaller phones shown beside a content section's inputs
@@ -38,6 +39,8 @@ const styleFields = [
   "introLogoMarginTop",
   "introLogoWidth",
   "introTextColor",
+  "introTheme",
+  "introAccentColor",
   "mapLogo",
   "hasMapStyle",
   "satellite",
@@ -97,6 +100,14 @@ function useLook(styles) {
         width: styles.intro.logoWidth,
       },
       introText: cssColor(styles.intro?.textColor),
+      // the home page's theme, text, accent and button colours
+      introColors: introColors({
+        theme: styles.intro?.theme,
+        textColor: styles.intro?.textColor,
+        accentColor: styles.intro?.accentColor,
+        buttonBackground: styles.button?.backgroundColor,
+        buttonText: styles.button?.textColor,
+      }),
       mapLogoSrc,
       mapSatellite,
       mapColors: colors,

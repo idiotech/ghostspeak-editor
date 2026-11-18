@@ -1,5 +1,6 @@
 import * as React from "react";
 import { logoBox, markerSize } from "./phoneStyles";
+import { introColors } from "./introTheme";
 
 // Previews of the three popup screens, drawn the way the Android app lays
 // them out (ghostspeak-client: popup/res/layout/activity_single_popup.xml,
@@ -40,7 +41,8 @@ function useAppFonts() {
 
 // the phone's screen, edge to edge under a transparent status bar; `scale`
 // shrinks the whole screen for the smaller previews
-export function Phone({ background, children, scale = 1 }) {
+// `lightBars` draws the status bar's icons dark, for a light background
+export function Phone({ background, children, scale = 1, lightBars = false }) {
   useAppFonts();
   const screen = (
     <div
@@ -59,7 +61,7 @@ export function Phone({ background, children, scale = 1 }) {
       }}
     >
       {background}
-      {statusBar}
+      {lightBars ? darkStatusBar : statusBar}
       {children}
     </div>
   );
@@ -79,7 +81,8 @@ export function Phone({ background, children, scale = 1 }) {
   );
 }
 
-function StatusBar() {
+function StatusBar({ color = "white" }) {
+  const shadow = color === "white" ? "0 0 2px rgba(0, 0, 0, 0.5)" : "none";
   return (
     <div
       style={{
@@ -93,8 +96,8 @@ function StatusBar() {
         alignItems: "center",
         justifyContent: "space-between",
         fontSize: 13,
-        color: "white",
-        textShadow: "0 0 2px rgba(0, 0, 0, 0.5)",
+        color,
+        textShadow: shadow,
       }}
     >
       <span>12:00</span>
@@ -103,7 +106,7 @@ function StatusBar() {
           style={{
             width: 14,
             height: 10,
-            background: "white",
+            background: color,
             clipPath: "polygon(0 100%, 100% 0, 100% 100%)",
           }}
         />
@@ -112,10 +115,9 @@ function StatusBar() {
             boxSizing: "border-box",
             width: 20,
             height: 10,
-            border: "1px solid white",
+            border: `1px solid ${color}`,
             borderRadius: 2,
-            background:
-              "linear-gradient(to right, white 0 70%, transparent 70%) no-repeat",
+            background: `linear-gradient(to right, ${color} 0 70%, transparent 70%) no-repeat`,
             backgroundOrigin: "content-box",
             padding: 1,
           }}
@@ -265,7 +267,16 @@ const dotY = 430;
 // the intro screen behind the script: activity_intro.xml's background picture
 // and logo (the app's own, unless the story sets its own), and the top bar's
 // scrim and settings button (setting/res/layout/top_bar.xml)
-function IntroBackground({ backgroundSrc, logoSrc, noLogo, logoPlacement }) {
+// `wordmarkTint` colours the app's own logo (the light theme's); with
+// `lightBars` the top bar loses its dark scrim
+function IntroBackground({
+  backgroundSrc,
+  logoSrc,
+  noLogo,
+  logoPlacement,
+  wordmarkTint,
+  lightBars,
+}) {
   // the app's logo is 139×79, centred above the 59% guideline; a story's
   // own goes where logoBox puts it; with 不使用首頁Logo the editor publishes
   // a transparent picture, so there is none
@@ -293,7 +304,22 @@ function IntroBackground({ backgroundSrc, logoSrc, noLogo, logoPlacement }) {
           objectFit: "cover",
         }}
       />
-      {logo && (
+      {logo &&
+        (wordmarkTint && !logoSrc ? (
+          // the wordmark, tinted: its shape filled with the colour
+          <div
+            style={{
+              position: "absolute",
+              width: logo.width,
+              height: logo.height,
+              left: (phoneWidth - logo.width) / 2,
+              top: logo.top,
+              background: wordmarkTint,
+              WebkitMask: `url(${logo.src}) center / contain no-repeat`,
+              mask: `url(${logo.src}) center / contain no-repeat`,
+            }}
+          />
+        ) : (
         <img
           src={logo.src}
           alt=""
@@ -306,17 +332,19 @@ function IntroBackground({ backgroundSrc, logoSrc, noLogo, logoPlacement }) {
             top: logo.top,
           }}
         />
+        ))}
+      {!lightBars && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 93,
+            background: statusBarScrim,
+          }}
+        />
       )}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 93,
-          background: statusBarScrim,
-        }}
-      />
       <svg
         width="40"
         height="40"
@@ -336,6 +364,7 @@ function IntroBackground({ backgroundSrc, logoSrc, noLogo, logoPlacement }) {
 // the static parts of the screens, built once so that typing in the form
 // only re-renders the panels
 const statusBar = <StatusBar />;
+const darkStatusBar = <StatusBar color="#1C1C1E" />;
 const mapBackground = <MapBackground />;
 const introBackground = <IntroBackground />;
 
@@ -350,14 +379,21 @@ const mapBackgroundFor = (look) =>
     mapBackground
   );
 
-// the intro screen, with the story's own picture and logo when it sets them
-const introBackgroundFor = (look) =>
-  look.introBackgroundSrc || look.introLogoSrc || look.introNoLogo ? (
+// the intro screen, with the story's own picture, logo and theme when it
+// sets them
+const introBackgroundFor = (look, colors) =>
+  look.introBackgroundSrc ||
+  look.introLogoSrc ||
+  look.introNoLogo ||
+  colors.wordmarkTint ||
+  colors.lightBars ? (
     <IntroBackground
       backgroundSrc={look.introBackgroundSrc}
       logoSrc={look.introLogoSrc}
       noLogo={look.introNoLogo}
       logoPlacement={look.introLogoPlacement}
+      wordmarkTint={colors.wordmarkTint}
+      lightBars={colors.lightBars}
     />
   ) : (
     introBackground
@@ -853,8 +889,14 @@ export function IntroPreview({
   scale,
 }) {
   const hasInput = choices.length > 0 || allowTextReply;
+  // the theme, text, accent and button colours, as the app resolves them
+  const colors = look.introColors || introColors({});
   return (
-    <Phone background={introBackgroundFor(look)} scale={scale}>
+    <Phone
+      background={introBackgroundFor(look, colors)}
+      scale={scale}
+      lightBars={colors.lightBars}
+    >
       <div
         style={{
           position: "absolute",
@@ -876,7 +918,7 @@ export function IntroPreview({
                   fontSize: 20,
                   lineHeight: "26px",
                   textAlign: "center",
-                  color: "white",
+                  color: colors.title,
                 }}
               >
                 {scenarioName}
@@ -888,8 +930,8 @@ export function IntroPreview({
                   lineHeight: "25px",
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
-                  // INTRO_IMAGE's textColor (MainFragment)
-                  ...(look.introText ? { color: look.introText } : {}),
+                  // INTRO_IMAGE's text colour or the theme's (MainFragment)
+                  color: colors.text,
                 }}
               >
                 {text}
@@ -904,14 +946,16 @@ export function IntroPreview({
                 {choices.map((c, i) => (
                   <div
                     key={"choice" + i}
-                    style={styled(
-                      {
-                        ...bigButton,
-                        color: introStartText,
-                        margin: "16px 16px 0",
-                      },
-                      look
-                    )}
+                    style={{
+                      ...bigButton,
+                      margin: "16px 16px 0",
+                      // MainFragment.tintWithAccent: the button style's or
+                      // the accent's fill, and a label to match
+                      color: colors.buttonText,
+                      ...(colors.buttonFill
+                        ? { background: colors.buttonFill }
+                        : {}),
+                    }}
                   >
                     {c}
                   </div>

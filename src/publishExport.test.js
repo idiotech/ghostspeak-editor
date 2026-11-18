@@ -430,3 +430,30 @@ test("the initial action never conflicts", () => {
   };
   assert.equal(hasConflictingConditions(action), false);
 });
+
+test("an intro image publishes its theme and accent, null when the author left them blank", () => {
+  const data = emptyData({
+    images: { paper: { id: "paper", image: { src: "https://files/paper.jpg" } } },
+  });
+  const themed = {
+    id: "open",
+    name: "開場",
+    hasIntroImage: true,
+    introBackground: "paper",
+    noIntroLogo: true,
+    introTextColor: "#1E3A2E",
+    introTheme: "light",
+    introAccentColor: "#42928D",
+  };
+  const [light] = getActions(themed, data, {});
+  assert.equal(light.content.task.type, "INTRO_IMAGE");
+  assert.equal(light.content.task.backgroundUrl, "https://files/paper.jpg");
+  assert.equal(light.content.task.textColor, "#1E3A2E");
+  assert.equal(light.content.task.theme, "light");
+  assert.equal(light.content.task.accentColor, "#42928D");
+
+  const [plain] = getActions({ ...themed, introTextColor: "", introTheme: "", introAccentColor: undefined }, data, {});
+  assert.equal(plain.content.task.textColor, null);
+  assert.equal(plain.content.task.theme, null);
+  assert.equal(plain.content.task.accentColor, null);
+});
