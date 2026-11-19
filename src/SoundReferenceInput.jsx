@@ -1,4 +1,5 @@
 import React from "react";
+import { StoredFileField } from "./StoredFileField";
 import { required, TextInput, FileInput, FileField } from "react-admin";
 
 import QuickCreateButton from "./QuickCreateButton";
@@ -19,7 +20,7 @@ const SoundQuickCreateButton = ({ source }) => (
       source="sound"
       validate={[required(), validateSoundFile]}
     >
-      <FileField source="src" title="name" />
+      <StoredFileField />
     </FileInput>
   </QuickCreateButton>
 );

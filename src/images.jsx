@@ -1,5 +1,6 @@
 // in src/posts.js
 import * as React from "react";
+import { StoredImageField } from "./StoredFileField";
 // tslint:disable-next-line:no-var-requires
 import {
   Datagrid,
@@ -105,7 +106,7 @@ export const ImageCreate = () => (
         validate={[required(), validateImageFile]}
         helperText={`上限 ${MAX_IMAGE_MB} MB；BMP 與超過 1 MB 的圖片會在儲存時自動壓縮`}
       >
-        <MyImageField source="src" title="name" />
+        <StoredImageField />
       </ImageInput>
       <>(圖釘建議大小： 150 x 150)</>
     </SimpleForm>
@@ -123,7 +124,7 @@ export const ImageEdit = () => (
         validate={[required(), validateImageFile]}
         helperText={`上限 ${MAX_IMAGE_MB} MB；BMP 與超過 1 MB 的圖片會在儲存時自動壓縮`}
       >
-        <MyImageField source="src" title="name" />
+        <StoredImageField />
       </ImageInput>
       <>(圖釘建議大小： 150 x 150)</>
       <DateTimeInput label="建立時間" readOnly source="createdate" />

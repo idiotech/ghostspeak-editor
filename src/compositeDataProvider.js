@@ -3,6 +3,7 @@ import { FirebaseDataProvider } from "react-admin-firebase";
 import { getCurrentScenario } from "./currentScenario";
 import { describeError } from "./errors";
 import { withoutUndefined } from "./utils";
+import { searchByName } from "./searchByName";
 
 class CompositeDataProvider {
   constructor(adminProvider, createScenarioProvider) {
@@ -36,8 +37,9 @@ class CompositeDataProvider {
     });
   }
 
+  // the pickers' typed text searches the records' names
   getList(resource, params) {
-    return this._delegate("getList", resource, params);
+    return this._delegate("getList", resource, searchByName(params));
   }
   getOne(resource, params) {
     return this._delegate("getOne", resource, params);
@@ -46,7 +48,7 @@ class CompositeDataProvider {
     return this._delegate("getMany", resource, params);
   }
   getManyReference(resource, params) {
-    return this._delegate("getManyReference", resource, params);
+    return this._delegate("getManyReference", resource, searchByName(params));
   }
   create(resource, params) {
     if (resource == "scenarios") {

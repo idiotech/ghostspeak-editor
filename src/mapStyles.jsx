@@ -1,4 +1,5 @@
 import * as React from "react";
+import { StoredFileField } from "./StoredFileField";
 import {
   Datagrid,
   List,
@@ -67,7 +68,7 @@ export const MapStyleCreate = () => (
     <SimpleForm>
       <TextInput label="名稱" source="name" sx={longInputSx} />
       <FileInput label="地圖樣式" source="mapStyle" validate={required()}>
-        <FileField source="src" title="name" />
+        <StoredFileField />
       </FileInput>
     </SimpleForm>
   </Create>
@@ -79,7 +80,7 @@ export const MapStyleEdit = () => (
       <TextInput readOnly source="id" />
       <TextInput label="名稱" source="name" sx={longInputSx} />
       <FileInput label="地圖樣式" source="mapStyle" validate={required()}>
-        <FileField source="src" title="name" />
+        <StoredFileField />
       </FileInput>
       <DateTimeInput label="建立時間" readOnly source="createdate" />
       <DateTimeInput label="修改時間" readOnly source="lastupdate" />
