@@ -1,5 +1,6 @@
 // in src/posts.js
 import * as React from "react";
+import { StoredFileField } from "./StoredFileField";
 // tslint:disable-next-line:no-var-requires
 import {
   Datagrid,
@@ -95,7 +96,7 @@ export const SoundCreate = () => (
         validate={[required(), validateSoundFile]}
         helperText={`上限 ${MAX_SOUND_MB} MB；WAV 會在儲存時自動轉成 MP3，長檔案需要等一下`}
       >
-        <FileField source="src" title="name" />
+        <StoredFileField />
       </FileInput>
     </SimpleForm>
   </Create>
@@ -112,7 +113,7 @@ export const SoundEdit = () => (
         validate={[required(), validateSoundFile]}
         helperText={`上限 ${MAX_SOUND_MB} MB；WAV 會在儲存時自動轉成 MP3，長檔案需要等一下`}
       >
-        <FileField source="src" title="name" />
+        <StoredFileField />
       </FileInput>
       <DateTimeInput label="建立時間" readOnly source="createdate" />
       <DateTimeInput label="修改時間" readOnly source="lastupdate" />

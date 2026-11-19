@@ -1,5 +1,6 @@
 import React from "react";
-import { required, TextInput, ImageInput, ImageField } from "react-admin";
+import { StoredImageField } from "./StoredFileField";
+import { required, TextInput, ImageInput } from "react-admin";
 
 import QuickCreateButton from "./QuickCreateButton";
 import ReferenceWithQuickCreate from "./ReferenceWithQuickCreate";
@@ -20,7 +21,7 @@ const ImageQuickCreateButton = ({ source }) => (
       source="image"
       validate={[required(), validateImageFile]}
     >
-      <ImageField source="src" title="name" />
+      <StoredImageField />
     </ImageInput>
   </QuickCreateButton>
 );

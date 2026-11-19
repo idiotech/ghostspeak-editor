@@ -2,9 +2,13 @@ import React from "react";
 import { useInput } from "react-admin";
 import { Box, TextField } from "@mui/material";
 import { besideInputSx } from "./inputWidth";
+import { swatchColor, pickedColor } from "./colorValue";
 
 // Replaces react-admin-color-input, which has no react-admin v4/v5 release.
-// Stores the color as a hex string such as "#ffffff".
+// Stores the color as a hex string such as "#ffffff", or "#59202020" with
+// the transparency first, as the app reads it. The browser's picker beside
+// the text only knows #rrggbb: it shows the colour without its transparency,
+// and picking keeps the transparency the value had.
 export const ColorInput = ({ source, label, helperText }) => {
   const { id, field } = useInput({ source });
   return (
@@ -21,8 +25,10 @@ export const ColorInput = ({ source, label, helperText }) => {
         <input
           type="color"
           aria-label={label}
-          value={field.value || "#000000"}
-          onChange={(event) => field.onChange(event.target.value)}
+          value={swatchColor(field.value)}
+          onChange={(event) =>
+            field.onChange(pickedColor(field.value, event.target.value))
+          }
         />
       </Box>
     </Box>
