@@ -3,7 +3,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { layoutStory } from "./storyLayout.js";
-import { routeEdges, labelBox, nodeBox, scrollForZoom } from "./storyGeometry.js";
+import { inListOrder } from "./actionTree.js";
+import { largeStory } from "./storyLayout.fixture.js";
+import { drawStory, labelBox, scrollForZoom } from "./storyGeometry.js";
 
 const start = { id: "start", firstAction: true };
 const step = (id, ...prevs) => ({ id, prevs: prevs.map((prev) => ({ prev })) });
@@ -13,16 +15,16 @@ const overlaps = (a, b) =>
 
 function route(actions, text = () => "回答「好，我們出發吧」") {
   const layout = layoutStory(actions);
-  return { layout, routes: routeEdges(layout, text) };
+  return { layout, ...drawStory(layout, text) };
 }
 const routeOf = (routes, from, to) =>
   routes.find((r) => r.edge.from === from && r.edge.to === to);
 
-function assertLabelsReadable({ layout, routes }) {
+function assertLabelsReadable({ routes, boxes }) {
   const labels = routes.filter((r) => r.label).map((r) => labelBox(r.label));
   labels.forEach((a, i) => {
     labels.slice(i + 1).forEach((b) => assert.equal(overlaps(a, b), false));
-    layout.nodes.forEach((n) => assert.equal(overlaps(a, nodeBox(n)), false));
+    boxes.forEach((box) => assert.equal(overlaps(a, box), false));
   });
 }
 
@@ -60,23 +62,6 @@ test("the label of a line back to an earlier step is not under an action", () =>
   ]);
   assert.equal(routeOf(drawn.routes, "c", "a").edge.kind, "back");
   assertLabelsReadable(drawn);
-});
-
-test("the label of a line within a column stops before the next column", () => {
-  const drawn = route([
-    start,
-    step("a", "start"),
-    step("b", "start", "a"),
-    step("a-1", "a"),
-    step("b-1", "b"),
-  ]);
-  const within = routeOf(drawn.routes, "a", "b");
-  assert.equal(
-    drawn.layout.nodes.find((n) => n.id === "a").column,
-    drawn.layout.nodes.find((n) => n.id === "b").column
-  );
-  assertLabelsReadable(drawn);
-  assert.ok(within.label.text.length <= 9);
 });
 
 test("labels stay readable in a tangled story", () => {
@@ -117,6 +102,85 @@ test("a short trigger is shown whole", () => {
 test("a line without a trigger text has no label", () => {
   const { routes } = route([start, step("a", "start")], () => "");
   assert.equal(routes[0].label, null);
+});
+
+test("a return passes below every action it crosses", () => {
+  const { routes, boxes } = route(
+    [
+      start,
+      step("a", "start", "c"),
+      step("side", "a"),
+      step("b", "a"),
+      step("c", "b"),
+    ],
+    () => ""
+  );
+  const back = routeOf(routes, "c", "a");
+  assert.equal(back.edge.kind, "back");
+  const lowest = Math.max(...[...boxes.values()].map((b) => b.bottom));
+  assert.ok(Math.max(...back.points.map(([, y]) => y)) > lowest);
+});
+
+test("a column gap with no label is narrow", () => {
+  const { boxes } = route([start, step("a", "start"), step("b", "a")], () => "");
+  assert.equal(boxes.get("a").left - boxes.get("start").right, 60);
+});
+
+test("a column gap fits its longest label", () => {
+  // five full-width characters, 60px
+  const { boxes } = route([start, step("a", "start")], () => "回答「好」");
+  assert.equal(boxes.get("a").left - boxes.get("start").right, 76);
+});
+
+test("labels stay readable in the large story", () => {
+  const reply = (edge) =>
+    `回答「${edge.entries[0].userReply || ""}」`;
+  assertLabelsReadable(route(inListOrder(largeStory), reply));
+});
+
+// points along a line: the cubic for four points, else the corners joined
+function along(points) {
+  if (points.length === 4)
+    return Array.from({ length: 200 }, (_, i) => {
+      const t = i / 199;
+      const u = 1 - t;
+      const w = [u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t];
+      return [0, 1].map((axis) =>
+        points.reduce((sum, p, k) => sum + p[axis] * w[k], 0)
+      );
+    });
+  return points.slice(1).flatMap((q, i) => {
+    const p = points[i];
+    return Array.from({ length: 50 }, (_, k) => [
+      p[0] + ((q[0] - p[0]) * k) / 49,
+      p[1] + ((q[1] - p[1]) * k) / 49,
+    ]);
+  });
+}
+
+test("no line in the large story runs through an action", () => {
+  const { routes, boxes } = route(inListOrder(largeStory));
+  const through = routes.filter((r) =>
+    [...boxes].some(
+      ([id, b]) =>
+        id !== r.edge.from &&
+        id !== r.edge.to &&
+        along(r.points).some(
+          ([x, y]) =>
+            x > b.left + 1 && x < b.right - 1 && y > b.top + 1 && y < b.bottom - 1
+        )
+    )
+  );
+  assert.deepEqual(
+    through.map((r) => `${r.edge.from}→${r.edge.to}`),
+    []
+  );
+});
+
+test("draws nothing for a story without a start", () => {
+  const drawn = route([step("a")]);
+  assert.deepEqual(drawn.routes, []);
+  assert.equal(drawn.boxes.size, 0);
 });
 
 test("zooming keeps the point in the middle of the view in the middle", () => {
