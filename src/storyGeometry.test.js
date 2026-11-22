@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { layoutStory } from "./storyLayout.js";
-import { routeEdges, labelBox, nodeBox } from "./storyGeometry.js";
+import { routeEdges, labelBox, nodeBox, scrollForZoom } from "./storyGeometry.js";
 
 const start = { id: "start", firstAction: true };
 const step = (id, ...prevs) => ({ id, prevs: prevs.map((prev) => ({ prev })) });
@@ -117,4 +117,21 @@ test("a short trigger is shown whole", () => {
 test("a line without a trigger text has no label", () => {
   const { routes } = route([start, step("a", "start")], () => "");
   assert.equal(routes[0].label, null);
+});
+
+test("zooming keeps the point in the middle of the view in the middle", () => {
+  const view = { scrollLeft: 1000, scrollTop: 1000, clientWidth: 800, clientHeight: 600 };
+  // the middle of the view is at (1400, 1300) in the graph at 100%
+  const next = scrollForZoom(view, 1, 0.4);
+  assert.equal(next.scrollLeft, 1400 * 0.4 - 400);
+  assert.equal(next.scrollTop, 1300 * 0.4 - 300);
+  // and back again
+  const back = scrollForZoom({ ...view, ...next }, 0.4, 1);
+  assert.equal(Math.round(back.scrollLeft), 1000);
+  assert.equal(Math.round(back.scrollTop), 1000);
+});
+
+test("zooming never scrolls before the start of the graph", () => {
+  const view = { scrollLeft: 0, scrollTop: 0, clientWidth: 800, clientHeight: 600 };
+  assert.deepEqual(scrollForZoom(view, 1, 0.4), { scrollLeft: 0, scrollTop: 0 });
 });

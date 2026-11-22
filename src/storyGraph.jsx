@@ -29,6 +29,7 @@ import {
   left,
   top,
   routeEdges,
+  scrollForZoom,
 } from "./storyGeometry";
 import { getContentIcon } from "./actionCommon";
 import { describeTrigger } from "./flow";
@@ -226,6 +227,16 @@ const ScenarioStoryGraph = () => {
       view.clientHeight / 2;
   }, [data.actionsLoaded, startRow, width, height]);
 
+  // after the author zooms, scroll so the middle of the view stays put
+  const pendingScroll = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const view = viewport.current;
+    if (!view || !pendingScroll.current) return;
+    view.scrollLeft = pendingScroll.current.scrollLeft;
+    view.scrollTop = pendingScroll.current.scrollTop;
+    pendingScroll.current = null;
+  }, [zoom]);
+
   const retry = (
     <Button color="inherit" size="small" onClick={refresh}>
       重試
@@ -244,7 +255,10 @@ const ScenarioStoryGraph = () => {
   const changeZoom = (step) => {
     moved.current = true;
     const at = zoomSteps.indexOf(zoom) + step;
-    setZoom(zoomSteps[Math.max(0, Math.min(zoomSteps.length - 1, at))]);
+    const next = zoomSteps[Math.max(0, Math.min(zoomSteps.length - 1, at))];
+    if (viewport.current)
+      pendingScroll.current = scrollForZoom(viewport.current, zoom, next);
+    setZoom(next);
   };
   const markMoved = () => {
     moved.current = true;
@@ -296,6 +310,10 @@ const ScenarioStoryGraph = () => {
             sx={{
               overflow: "auto",
               maxHeight: "calc(100vh - 230px)",
+              // its width comes from the page, never from the graph inside:
+              // otherwise a big story widens the whole page, which then
+              // scrolls sideways instead of the graph
+              contain: "inline-size",
               border: "1px solid",
               borderColor: "divider",
               borderRadius: 1,

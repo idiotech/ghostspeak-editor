@@ -189,3 +189,15 @@ export function routeEdges(layout, describe) {
     return { edge, path, points, label };
   });
 }
+
+// Where to scroll after zooming from `from` to `to` so that the point in the
+// middle of the view stays there. Without it the view keeps its scroll
+// offset in pixels, which after zooming out lands far past the graph.
+export function scrollForZoom(view, from, to) {
+  const middleX = (view.scrollLeft + view.clientWidth / 2) / from;
+  const middleY = (view.scrollTop + view.clientHeight / 2) / from;
+  return {
+    scrollLeft: Math.max(0, middleX * to - view.clientWidth / 2),
+    scrollTop: Math.max(0, middleY * to - view.clientHeight / 2),
+  };
+}
