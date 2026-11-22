@@ -801,6 +801,7 @@ const incomingCallInput = (formData, enableDelay) => (
       source="callStatus"
       choices={callTypes}
       defaultValue={"CONNECTING"}
+      validate={[required()]}
     />{" "}
     <br />
     <CallPreviewPane
@@ -985,8 +986,8 @@ const introImageInput = (formData, enableDelay) => (
 
 const buttonStyleInput = (formData, enableDelay) => (
   <>
-    <ColorInput label="背景顏色" source="backgroundColor" />
-    <ColorInput label="文字顏色" source="textColor" />
+    <ColorInput label="背景顏色" source="backgroundColor" validate={required()} />
+    <ColorInput label="文字顏色" source="textColor" validate={required()} />
     <ButtonStylePreviewPane formData={formData} />
     {enableDelay && addDelay(formData, "buttonStyle")}
   </>
@@ -994,7 +995,11 @@ const buttonStyleInput = (formData, enableDelay) => (
 
 const popupStyleInput = (formData, enableDelay) => (
   <>
-    <ColorInput label="提示文字顏色" source="alertTextColor" />
+    <ColorInput
+      label="提示文字顏色"
+      source="alertTextColor"
+      validate={required()}
+    />
     <ColorInput
       label="面板顏色"
       helperText="含透明度，例如 #59202020"
@@ -1071,13 +1076,18 @@ const silenceInput = (formData, enableDelay) => (
       filter={{ hasSound: true }}
       perPage={1000}
     >
-      <SelectInput label="聲音" optionText="name" sx={longInputSx} />
+      <SelectInput
+        label="聲音"
+        optionText="name"
+        sx={longInputSx}
+        validate={[required()]}
+      />
     </ReferenceInput>
     <div>
       <NumberInput
         label="淡出秒數 (整數)"
         source="forceFadeOutSeconds"
-        validate={[number(), validateInteger]}
+        validate={[required(), number(), validateInteger]}
       />
       在幾秒內淡出到消失。設為0代表立即停止。
     </div>

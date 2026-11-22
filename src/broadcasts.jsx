@@ -59,6 +59,7 @@ import {
 } from "./actionCommon";
 
 import { useAllData, getActions } from "./serverCommon";
+import { findMissingFields } from "./missingFields";
 import {
   ProblemsContext,
   useBrokenReferences,
@@ -243,6 +244,17 @@ function SendButton(props) {
   async function handleConfirm() {
     setOpen(false);
     const problems = findBrokenReferences(record, data);
+    const missing = findMissingFields(record, { broadcast: true });
+    if (missing.length > 0) {
+      notify(
+        <BrokenReferencesMessage
+          title={`無法傳送「${getRecordField(record, "name")}」，這些必填的欄位是空的：`}
+          problems={missing}
+        />,
+        { type: "error", autoHideDuration: null }
+      );
+      return;
+    }
     if (problems.length > 0) {
       notify(
         <BrokenReferencesMessage

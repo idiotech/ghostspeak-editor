@@ -466,14 +466,20 @@ const InputForm = (props) => {
                           label="變數"
                           optionText="name"
                           sx={longInputSx}
+                          validate={[required()]}
                         />
                       </ReferenceInput>
                       <SelectInput
                         label="比較"
                         source="comparison"
                         choices={comparisonTypes}
+                        validate={[required()]}
                       />
-                      <NumberInput label="數值" source="value" />
+                      <NumberInput
+                        label="數值"
+                        source="value"
+                        validate={[required()]}
+                      />
                     </SimpleFormIterator>
                   </ArrayInput>
                 </>
