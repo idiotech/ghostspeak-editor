@@ -10,8 +10,13 @@ export const minColumnGap = 60;
 export const maxColumnGap = 170;
 export const rowGap = 20;
 export const margin = 24;
-// how far a return line runs below the actions it passes
+// how far a return line runs below the actions it passes, how much further
+// each return over the same columns runs, and how far apart their climbs are
 const returnDrop = rowGap / 2 + 9;
+const returnSpacing = 16;
+const climbSpacing = 6;
+// where a loop back to the same action puts its label, past the right side
+const loopLabelAt = 46;
 
 const fontSize = 12;
 // a full-width character takes the whole font size, others about half
@@ -103,16 +108,51 @@ function spotsIn(points, gaps) {
 // of the gaps between them.
 function measure(layout, texts) {
   const byId = new Map(layout.nodes.map((n) => [n.id, n]));
+  // the room each gap needs, beyond its padding
   const widest = Array(Math.max(0, layout.columns - 1)).fill(0);
+  const widen = (gap, width) => {
+    if (gap >= 0 && gap < widest.length) widest[gap] = Math.max(widest[gap], width);
+  };
   for (const edge of layout.edges) {
     const text = texts.get(edge);
-    if (edge.kind === "back" || !text) continue;
-    const gap = byId.get(edge.to).column - 1;
-    if (gap >= 0) widest[gap] = Math.max(widest[gap], textWidth(shorten(text, 13)));
+    if (!text) continue;
+    if (edge.from === edge.to)
+      // a loop's label starts past its right side, in the gap after it
+      widen(
+        byId.get(edge.from).column,
+        loopLabelAt + textWidth(shorten(text, 9)) - 8
+      );
+    else if (edge.kind !== "back")
+      widen(byId.get(edge.to).column - 1, textWidth(shorten(text, 13)));
   }
   const gaps = widest.map((w) =>
     Math.min(maxColumnGap, Math.max(minColumnGap, w + 16))
   );
+
+  // Returns over overlapping columns would share their lines; each takes the
+  // first lane no overlapping return has, the shortest first so that a return
+  // around another runs outside it.
+  const lanes = new Map();
+  const returns = layout.edges
+    .filter((e) => e.kind === "back" && e.from !== e.to)
+    .map((edge) => ({
+      edge,
+      first: byId.get(edge.to).column - 1,
+      last: byId.get(edge.from).column,
+    }))
+    .sort((a, b) => a.last - a.first - (b.last - b.first));
+  const laid = [];
+  for (const r of returns) {
+    const used = new Set(
+      laid
+        .filter((o) => o.first <= r.last && r.first <= o.last)
+        .map((o) => lanes.get(o.edge))
+    );
+    let lane = 0;
+    while (used.has(lane)) lane++;
+    lanes.set(r.edge, lane);
+    laid.push(r);
+  }
   const columnLeft = [margin];
   gaps.forEach((gap, c) => columnLeft.push(columnLeft[c] + nodeWidth + gap));
   // the lowest box bottom in each column
@@ -127,6 +167,8 @@ function measure(layout, texts) {
   const occupied = new Set(layout.nodes.map((n) => `${n.column},${n.row}`));
   return {
     byId,
+    returnLane: (edge) => lanes.get(edge) || 0,
+    columnCenter: (column) => columnLeft[column] + nodeWidth / 2,
     // whether an action stands in the columns strictly between two and the
     // rows from one to the other
     blocked: (from, to) => {
@@ -148,7 +190,7 @@ function measure(layout, texts) {
 }
 
 // The curve of one line and the places its label may go, best first.
-function shape(from, to, at) {
+function shape(from, to, at, edge) {
   const { left, top, middle, gapCenter, lowestIn } = at;
   if (from.id === to.id) {
     // back to itself: a loop on the right side
@@ -165,7 +207,7 @@ function shape(from, to, at) {
       path: cubic(points),
       anchor: "start",
       length: 9,
-      spots: [[x + 46, y + 4]],
+      spots: [[x + loopLabelAt, y + 4]],
     };
   }
   if (to.column <= from.column) {
@@ -173,9 +215,13 @@ function shape(from, to, at) {
     // action between the two, up the gap before the earlier one and into it
     const y1 = middle(from);
     const y2 = middle(to) + 10;
-    const out = gapCenter(from.column);
-    const back = to.column > 0 ? gapCenter(to.column - 1) : left(to) - 12;
-    const dip = lowestIn(to.column, from.column) + returnDrop;
+    const lane = at.returnLane(edge);
+    const out = gapCenter(from.column) + lane * climbSpacing;
+    const back =
+      (to.column > 0 ? gapCenter(to.column - 1) : left(to) - 12) -
+      lane * climbSpacing;
+    const dip =
+      lowestIn(to.column, from.column) + returnDrop + lane * returnSpacing;
     const points = [
       [left(from) + nodeWidth, y1],
       [out, y1],
@@ -184,12 +230,16 @@ function shape(from, to, at) {
       [back, y2],
       [left(to) - 4, y2],
     ];
-    const spots = [];
-    for (let c = from.column - 1; c >= to.column; c--)
-      spots.push([gapCenter(c), dip - 5]);
-    for (let c = from.column - 1; c >= to.column; c--)
-      spots.push([gapCenter(c), dip + 14]);
-    if (!spots.length) spots.push([out, dip + 14]);
+    // above the line, under each gap and each action it passes, then below
+    const along = [];
+    for (let c = from.column; c >= to.column; c--) {
+      if (c < from.column) along.push(gapCenter(c));
+      along.push(at.columnCenter(c));
+    }
+    const spots = [
+      ...along.map((x) => [x, dip - 5]),
+      ...along.map((x) => [x, dip + 14]),
+    ];
     return { points, path: corners(points), anchor: "middle", length: 13, spots };
   }
   if (at.blocked(from, to)) {
@@ -278,7 +328,7 @@ export function drawStory(layout, describe) {
   const routes = layout.edges.map((edge) => {
     const from = byId.get(edge.from);
     const to = byId.get(edge.to);
-    const { points, path, anchor, length, spots } = shape(from, to, at);
+    const { points, path, anchor, length, spots } = shape(from, to, at, edge);
     const full = texts.get(edge);
     if (!full) return { edge, path, points, label: null };
 

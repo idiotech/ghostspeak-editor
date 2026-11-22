@@ -177,6 +177,60 @@ test("no line in the large story runs through an action", () => {
   );
 });
 
+test("the label of a loop back to the same action stays clear of the next column", () => {
+  const drawn = route(
+    [
+      start,
+      step("a", "start", "a"),
+      // a column of answers beside the loop, filling the rows below it
+      ...["b-1", "b-2", "b-3", "b-4"].map((id) => step(id, "a")),
+    ],
+    (edge) => (edge.from === edge.to ? "回答「再試一次吧」" : "")
+  );
+  assertLabelsReadable(drawn);
+  const loop = routeOf(drawn.routes, "a", "a");
+  const box = labelBox(loop.label);
+  const ys = loop.points.map(([, y]) => y);
+  assert.ok(
+    box.bottom > Math.min(...ys) && box.top < Math.max(...ys),
+    "the label sits beside its loop"
+  );
+});
+
+// two wrong answers that both lead back to the question
+const twoReturns = [
+  start,
+  step("ask", "start", "wrong-1", "wrong-2"),
+  step("wrong-1", "ask"),
+  step("wrong-2", "ask"),
+  step("right", "ask"),
+];
+const lowestY = (r) => Math.max(...r.points.map(([, y]) => y));
+
+test("returns over the same columns are drawn apart", () => {
+  const { routes } = route(twoReturns, () => "");
+  const one = routeOf(routes, "wrong-1", "ask");
+  const other = routeOf(routes, "wrong-2", "ask");
+  assert.equal(one.edge.kind, "back");
+  assert.equal(other.edge.kind, "back");
+  assert.notEqual(lowestY(one), lowestY(other));
+  // the climbs into the question run side by side, not on top of each other
+  assert.notEqual(one.points[3][0], other.points[3][0]);
+});
+
+test("labels of returns over the same columns stay by their own lines", () => {
+  const drawn = route(twoReturns, (edge) =>
+    edge.kind === "back" ? `任意回答（${edge.from}）` : ""
+  );
+  assertLabelsReadable(drawn);
+  for (const from of ["wrong-1", "wrong-2"]) {
+    const r = routeOf(drawn.routes, from, "ask");
+    const box = labelBox(r.label);
+    const dip = lowestY(r);
+    assert.ok(box.top <= dip + 4 && box.bottom >= dip - 4, `${from} label off its line`);
+  }
+});
+
 test("draws nothing for a story without a start", () => {
   const drawn = route([step("a")]);
   assert.deepEqual(drawn.routes, []);
