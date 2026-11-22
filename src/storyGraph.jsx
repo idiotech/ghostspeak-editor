@@ -2,7 +2,7 @@ import * as React from "react";
 import { Title, useRefresh } from "react-admin";
 // react-router's Link takes a ref, which Tooltip and Chip need
 import { Link } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
@@ -20,17 +20,7 @@ import { findContentProblems } from "./actionChecks";
 import { inListOrder } from "./actionTree";
 import { describeError } from "./errors";
 import { EmptyPage } from "./dummy";
-import {
-  nodeWidth,
-  nodeHeight,
-  columnGap,
-  rowGap,
-  margin,
-  left,
-  top,
-  routeEdges,
-  scrollForZoom,
-} from "./storyGeometry";
+import { nodeHeight, drawStory, scrollForZoom } from "./storyGeometry";
 import { getContentIcon } from "./actionCommon";
 import { describeTrigger } from "./flow";
 import { layoutStory } from "./storyLayout";
@@ -72,30 +62,40 @@ const EdgeLabel = ({ label, colors }) => (
   </text>
 );
 
-function ActionNode({ node, problems }) {
+function ActionNode({ node, box: place, problems }) {
   const { action } = node;
+  // the opening and the endings stand out from the steps between
+  const tint = action.firstAction
+    ? "primary.main"
+    : action.endgame
+    ? "success.main"
+    : null;
   const box = (
     <Box
       component={Link}
       to={`/actions/${action.id}`}
       sx={{
         position: "absolute",
-        left: left(node),
-        top: top(node),
-        width: nodeWidth,
-        height: nodeHeight,
+        left: place.left,
+        top: place.top,
+        width: place.right - place.left,
+        height: place.bottom - place.top,
         boxSizing: "border-box",
         padding: "6px 10px",
         borderRadius: 1,
         border: "1px solid",
         borderColor: problems ? "error.main" : "divider",
         borderLeftWidth: 4,
-        borderLeftColor: problems
-          ? "error.main"
-          : action.firstAction
-          ? "primary.main"
-          : "divider",
-        bgcolor: "background.paper",
+        borderLeftColor: problems ? "error.main" : tint || "divider",
+        bgcolor: (theme) =>
+          tint
+            ? alpha(
+                tint === "primary.main"
+                  ? theme.palette.primary.main
+                  : theme.palette.success.main,
+                0.08
+              )
+            : theme.palette.background.paper,
         color: "text.primary",
         textDecoration: "none",
         display: "flex",
@@ -129,7 +129,9 @@ function ActionNode({ node, problems }) {
       >
         {action.firstAction && <FlagIcon color="primary" titleAccess="開頭" />}
         {getContentIcon(action)}
-        {action.endgame && <SportsScoreIcon titleAccess="結束活動" />}
+        {action.endgame && (
+          <SportsScoreIcon color="success" titleAccess="結束活動" />
+        )}
         {problems && (
           <WarningIcon color="error" sx={{ marginLeft: "auto" }} />
         )}
@@ -156,11 +158,19 @@ const Legend = ({ colors }) => {
       />
     </svg>
   );
+  const swatch = (color) => (
+    <svg width="18" height="12" style={{ verticalAlign: "middle" }}>
+      <rect x="0.5" y="0.5" width="17" height="11" rx="2" fill={alpha(color, 0.08)} stroke={color} />
+      <rect x="0" y="0" width="3" height="12" fill={color} />
+    </svg>
+  );
   return (
     <Box sx={{ fontSize: 13, color: "text.secondary", display: "flex", gap: 2, flexWrap: "wrap" }}>
       <span>{line(colors.next)} 下一步</span>
       <span>{line(colors.also, true)} 另一條通往同一動作的路</span>
       <span>{line(colors.back, true)} 回到先前的動作</span>
+      <span>{swatch(colors.start)} 開頭</span>
+      <span>{swatch(colors.end)} 結束活動</span>
       <span>點動作可以編輯</span>
     </Box>
   );
@@ -178,7 +188,7 @@ const ScenarioStoryGraph = () => {
   // set once the author zooms or scrolls, so the view is theirs from then on
   const moved = React.useRef(false);
 
-  const { layout, routes, problems } = React.useMemo(() => {
+  const { layout, drawn, problems } = React.useMemo(() => {
     const all = Object.values(data.actions);
     // the order the action list numbers them in
     const layout = layoutStory(inListOrder(all));
@@ -188,7 +198,7 @@ const ScenarioStoryGraph = () => {
     const content = findContentProblems(all);
     content.noContent.forEach((a) => add(a, "沒有任何內容"));
     content.noReply.forEach((a) => add(a, "圖文視窗沒有回應方式"));
-    return { layout, routes: routeEdges(layout, describeEdge), problems };
+    return { layout, drawn: drawStory(layout, describeEdge), problems };
   }, [data.actions, brokenReferences]);
 
   const colors = {
@@ -197,22 +207,19 @@ const ScenarioStoryGraph = () => {
     back: theme.palette.warning.main,
     label: theme.palette.text.primary,
     background: theme.palette.background.default,
+    start: theme.palette.primary.main,
+    end: theme.palette.success.main,
   };
 
-  const width =
-    2 * margin + layout.columns * nodeWidth + (layout.columns - 1) * columnGap;
-  // room under the last row for lines that return to an earlier step
-  const height =
-    2 * margin + layout.rows * (nodeHeight + rowGap) + rowGap + 18;
+  const { routes, boxes, width, height } = drawn;
 
   // Until the author moves the view, show as much of the story as stays
-  // readable, with the initial action in view: in a wide story it sits far
-  // down the page. Runs again when the story changes size, as it does when
-  // fresh records replace cached ones.
-  const startRow = layout.nodes[0]?.row;
+  // readable, with the initial action in view. Runs again when the story
+  // changes size, as it does when fresh records replace cached ones.
+  const startTop = layout.nodes[0] && boxes.get(layout.nodes[0].id).top;
   React.useLayoutEffect(() => {
     const view = viewport.current;
-    if (!view || startRow === undefined || moved.current) return;
+    if (!view || startTop === undefined || moved.current) return;
     // never start smaller than the names stay readable at; a long story
     // scrolls sideways instead
     const fit =
@@ -223,9 +230,8 @@ const ScenarioStoryGraph = () => {
     setZoom(fit);
     view.scrollLeft = 0;
     view.scrollTop =
-      (margin + startRow * (nodeHeight + rowGap) + nodeHeight / 2) * fit -
-      view.clientHeight / 2;
-  }, [data.actionsLoaded, startRow, width, height]);
+      (startTop + nodeHeight / 2) * fit - view.clientHeight / 2;
+  }, [data.actionsLoaded, startTop, width, height]);
 
   // after the author zooms, scroll so the middle of the view stays put
   const pendingScroll = React.useRef(null);
@@ -363,6 +369,7 @@ const ScenarioStoryGraph = () => {
                   <ActionNode
                     key={node.id}
                     node={node}
+                    box={boxes.get(node.id)}
                     problems={problems.get(node.id)}
                   />
                 ))}

@@ -3,6 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { layoutStory } from "./storyLayout.js";
+import { inListOrder } from "./actionTree.js";
+import { largeStory } from "./storyLayout.fixture.js";
 
 const start = { id: "start", firstAction: true };
 const step = (id, ...prevs) => ({
@@ -25,24 +27,63 @@ test("lays a straight story out in one row, one column per step", () => {
   assert.equal(layout.rows, 1);
 });
 
-test("gives each branch its own row and centers the step they leave", () => {
+test("keeps the first of parallel branches straight on and the rest below", () => {
   const layout = layoutStory([start, step("x", "start"), step("y", "start")]);
-  assert.deepEqual(place(layout, "x"), [1, 0]);
-  assert.deepEqual(place(layout, "y"), [1, 1]);
-  assert.deepEqual(place(layout, "start"), [0, 0.5]);
+  assert.deepEqual(place(layout, "start"), [0, 0]);
+  assert.deepEqual([place(layout, "x"), place(layout, "y")].sort(), [[1, 0], [1, 1]]);
   assert.equal(layout.rows, 2);
 });
 
-test("keeps a longer branch's steps on that branch's row", () => {
+test("puts an action reached two ways after both", () => {
   const layout = layoutStory([
     start,
-    step("short", "start"),
-    step("long", "start"),
-    step("long-1", "long"),
+    step("a", "start"),
+    step("b", "a"),
+    step("end", "b", "start"),
   ]);
-  assert.deepEqual(place(layout, "short"), [1, 0]);
-  assert.deepEqual(place(layout, "long"), [1, 1]);
-  assert.deepEqual(place(layout, "long-1"), [2, 1]);
+  assert.deepEqual(place(layout, "end"), [3, 0]);
+});
+
+// ask → wrong → retry, and from ask or retry → right → next: the player
+// answering right first goes straight on
+test("keeps the storyline straight through a retry loop", () => {
+  const layout = layoutStory([
+    start,
+    step("ask", "start"),
+    step("wrong", "ask", "retry"),
+    step("retry", "wrong"),
+    step("right", "ask", "retry"),
+    step("next", "right"),
+  ]);
+  for (const id of ["start", "ask", "right", "next"])
+    assert.equal(place(layout, id)[1], 0, id);
+  assert.equal(place(layout, "wrong")[1], 1);
+  assert.equal(edge(layout, "retry", "wrong").kind, "back");
+});
+
+test("reserves the row a long line runs along", () => {
+  const layout = layoutStory([
+    start,
+    step("a", "start"),
+    step("b", "a"),
+    step("end", "b", "start"),
+    step("side", "start"),
+  ]);
+  // start → end goes straight on along row 0 over columns 1–2
+  assert.equal(place(layout, "end")[1], 0);
+  for (const id of ["a", "b", "side"]) assert.notEqual(place(layout, id)[1], 0, id);
+  const cells = new Set(layout.nodes.map((n) => `${n.column},${n.row}`));
+  assert.equal(cells.size, layout.nodes.length);
+});
+
+test("lays the large story out on few rows with the storyline on the first", () => {
+  const layout = layoutStory(inListOrder(largeStory));
+  assert.equal(layout.nodes.length, 200);
+  assert.ok(layout.rows <= 12, `rows ${layout.rows}`);
+  const first = layout.nodes.find((n) => n.action.firstAction);
+  assert.deepEqual([first.column, first.row], [0, 0]);
+  const onFirstRow = layout.nodes.filter((n) => n.row === 0).length;
+  assert.ok(onFirstRow >= 90, `on the first row ${onFirstRow}`);
 });
 
 test("numbers actions in the order the action list shows them", () => {
