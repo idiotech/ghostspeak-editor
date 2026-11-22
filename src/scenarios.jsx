@@ -65,6 +65,11 @@ import {
 import { buildGPX, BaseBuilder } from "gpx-builder";
 import StopRowClick from "./StopRowClick";
 import { getActionTree } from "./actionTree";
+import {
+  findMissingFields,
+  findMissingVariableFields,
+  describeMissingFields,
+} from "./missingFields";
 
 export { getActionTree };
 const { Point, Track, Segment } = BaseBuilder.MODELS;
@@ -134,6 +139,26 @@ function PublishButton(props) {
         <BrokenReferencesMessage
           title="無法發佈，以下動作參照的項目已不存在："
           problems={broken}
+        />,
+        { type: "error", autoHideDuration: null }
+      );
+      return;
+    }
+
+    // fields the server cannot do without, left empty
+    const missing = [
+      ...describeMissingFields(flatten(actionTree), (a) => findMissingFields(a)),
+      ...describeMissingFields(
+        Object.values(data.variables),
+        findMissingVariableFields
+      ).map((line) => `變數${line}`),
+    ];
+    if (missing.length > 0) {
+      setLoading(false);
+      notify(
+        <BrokenReferencesMessage
+          title="無法發佈，以下動作或變數有必填的欄位是空的："
+          problems={missing}
         />,
         { type: "error", autoHideDuration: null }
       );
